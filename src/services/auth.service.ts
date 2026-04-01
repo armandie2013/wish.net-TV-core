@@ -1,22 +1,28 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import User from "../models/User";
-import { connectDB } from "../lib/db";
-import type { LoginInput } from "../validations/auth.validation";
+import User from "@/models/User";
+import { connectDB } from "@/lib/db";
+import type { LoginInput } from "@/validations/auth.validation";
 
-const JWT_SECRET = process.env.JWT_SECRET;
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
 
-if (!JWT_SECRET) {
-  throw new Error("Falta la variable de entorno JWT_SECRET");
+  if (!secret) {
+    throw new Error("Falta la variable de entorno JWT_SECRET");
+  }
+
+  return secret;
 }
+
+const JWT_SECRET = getJwtSecret();
 
 export async function loginUser(data: LoginInput) {
   await connectDB();
 
-  const user = await User.findOne({ email: data.email.toLowerCase() }).lean();
+  const user = await User.findOne({ email: data.email.toLowerCase() });
 
   if (!user) {
-    throw new Error("Credenciales inválidas");
+    throw new Error("Usuario no encontrado");
   }
 
   if (user.estado !== "activo") {
@@ -26,7 +32,7 @@ export async function loginUser(data: LoginInput) {
   const passwordOk = await bcrypt.compare(data.password, user.password);
 
   if (!passwordOk) {
-    throw new Error("Credenciales inválidas");
+    throw new Error("Contraseña incorrecta");
   }
 
   const token = jwt.sign(
