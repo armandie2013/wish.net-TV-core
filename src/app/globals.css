@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #f8fafc;
@@ -7,10 +8,10 @@
 
 html,
 body {
-  background: var(--background);
-  color: var(--foreground);
+  min-height: 100%;
 }
 
 body {
-  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
 }

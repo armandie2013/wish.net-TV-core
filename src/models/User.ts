@@ -37,6 +37,10 @@ const userSchema = new Schema(
       default: 1,
       min: 1,
     },
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

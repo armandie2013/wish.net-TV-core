@@ -41,6 +41,7 @@ export async function loginUser(data: LoginInput) {
       email: user.email,
       rol: user.rol,
       localidad: user.localidad,
+      mustChangePassword: user.mustChangePassword,
     },
     JWT_SECRET,
     { expiresIn: "8h" }
@@ -48,6 +49,7 @@ export async function loginUser(data: LoginInput) {
 
   return {
     token,
+    mustChangePassword: user.mustChangePassword,
     user: {
       id: String(user._id),
       nombre: user.nombre,
@@ -77,5 +79,6 @@ export async function createInitialAdmin() {
     estado: "activo",
     localidad: "principal",
     conexionesPermitidas: 3,
+    mustChangePassword: false,
   });
 }

@@ -17,6 +17,7 @@ export type AuthTokenPayload = {
   email: string;
   rol: string;
   localidad: string;
+  mustChangePassword?: boolean;
   iat?: number;
   exp?: number;
 };
