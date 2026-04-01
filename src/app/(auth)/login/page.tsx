@@ -1,41 +1,28 @@
-"use client";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { verifyAuthToken } from "@/lib/auth";
 
-import { useState } from "react";
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams?: { error?: string };
+}) {
+  const cookieStore = cookies();
+  const token = cookieStore.get("auth_token")?.value;
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("admin@wishnet.local");
-  const [password, setPassword] = useState("Admin123456!");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
-    setMessage("");
-
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setMessage(data.message || "Error al iniciar sesión");
-        return;
-      }
-
-      setMessage("Login correcto");
-    } catch {
-      setMessage("No se pudo conectar con el servidor");
-    } finally {
-      setLoading(false);
+  if (token) {
+    const session = verifyAuthToken(token);
+    if (session) {
+      redirect("/dashboard");
     }
   }
+
+  const error =
+    searchParams?.error === "credenciales"
+      ? "Email o contraseña incorrectos"
+      : searchParams?.error === "datos-invalidos"
+      ? "Datos inválidos"
+      : "";
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-10">
@@ -49,16 +36,17 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
+        <form action="/api/auth/login" method="POST" className="space-y-5 px-6 py-6">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Email
             </label>
             <input
               type="email"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none ring-0 transition focus:border-blue-500"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              name="email"
+              defaultValue="admin@wishnet.local"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500"
+              required
             />
           </div>
 
@@ -68,23 +56,23 @@ export default function LoginPage() {
             </label>
             <input
               type="password"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none ring-0 transition focus:border-blue-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
+              defaultValue="Admin123456!"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500"
+              required
             />
           </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            {loading ? "Ingresando..." : "Ingresar"}
+            Ingresar
           </button>
 
-          {message && (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              {message}
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
             </div>
           )}
         </form>
