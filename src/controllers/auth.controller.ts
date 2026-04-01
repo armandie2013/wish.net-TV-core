@@ -4,6 +4,8 @@ import { loginUser } from "@/services/auth.service";
 import { verifyAuthToken } from "@/lib/auth";
 import User from "@/models/User";
 import { connectDB } from "@/lib/db";
+import { updateUserPasswordSchema } from "@/validations/user.validation";
+import { updateUserPassword } from "@/services/user.service";
 
 export async function loginController(request: Request) {
   try {
@@ -33,8 +35,12 @@ export async function loginController(request: Request) {
 
     const result = await loginUser(parsed.data);
 
+    const destination = result.mustChangePassword
+      ? "/change-password"
+      : "/dashboard";
+
     const response = NextResponse.redirect(
-      new URL("/dashboard", request.url),
+      new URL(destination, request.url),
       303
     );
 
@@ -80,7 +86,7 @@ export async function meController(request: Request) {
     await connectDB();
 
     const user = await User.findById(payload.sub).select(
-      "nombre email rol localidad estado"
+      "nombre email rol localidad estado mustChangePassword"
     );
 
     if (!user) {
@@ -96,5 +102,54 @@ export async function meController(request: Request) {
       error instanceof Error ? error.message : "Error interno del servidor";
 
     return NextResponse.json({ ok: false, message }, { status: 500 });
+  }
+}
+
+export async function changeOwnPasswordController(request: Request) {
+  try {
+    const cookieHeader = request.headers.get("cookie") || "";
+    const tokenMatch = cookieHeader.match(/auth_token=([^;]+)/);
+    const token = tokenMatch?.[1];
+
+    if (!token) {
+      return NextResponse.redirect(new URL("/login", request.url), 303);
+    }
+
+    const payload = verifyAuthToken(token);
+
+    if (!payload) {
+      return NextResponse.redirect(new URL("/login", request.url), 303);
+    }
+
+    const formData = await request.formData();
+
+    const rawData = {
+      password: formData.get("password"),
+      confirmPassword: formData.get("confirmPassword"),
+    };
+
+    const parsed = updateUserPasswordSchema.safeParse(rawData);
+
+    if (!parsed.success) {
+      return NextResponse.redirect(
+        new URL("/change-password?error=datos-invalidos", request.url),
+        303
+      );
+    }
+
+    await updateUserPassword(payload.sub, parsed.data);
+
+    return NextResponse.redirect(new URL("/dashboard", request.url), 303);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al cambiar contraseña";
+
+    return NextResponse.redirect(
+      new URL(
+        `/change-password?error=${encodeURIComponent(message)}`,
+        request.url
+      ),
+      303
+    );
   }
 }
