@@ -139,7 +139,18 @@ export async function changeOwnPasswordController(request: Request) {
 
     await updateUserPassword(payload.sub, parsed.data);
 
-    return NextResponse.redirect(new URL("/dashboard", request.url), 303);
+    const response = NextResponse.redirect(
+      new URL("/login?success=password-changed", request.url),
+      303
+    );
+
+    response.cookies.set("auth_token", "", {
+      httpOnly: true,
+      expires: new Date(0),
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error al cambiar contraseña";

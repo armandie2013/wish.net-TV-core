@@ -6,15 +6,16 @@ import ThemeToggle from "@/components/ThemeToggle";
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams?: { error?: string };
+  searchParams?: { error?: string; success?: string };
 }) {
   const cookieStore = cookies();
   const token = cookieStore.get("auth_token")?.value;
 
   if (token) {
     const session = verifyAuthToken(token);
+
     if (session) {
-      redirect("/dashboard");
+      redirect(session.mustChangePassword ? "/change-password" : "/dashboard");
     }
   }
 
@@ -23,6 +24,11 @@ export default function LoginPage({
       ? "Email o contraseña incorrectos"
       : searchParams?.error === "datos-invalidos"
       ? "Datos inválidos"
+      : "";
+
+  const success =
+    searchParams?.success === "password-changed"
+      ? "Contraseña actualizada correctamente. Iniciá sesión con la nueva contraseña."
       : "";
 
   return (
@@ -117,6 +123,12 @@ export default function LoginPage({
                 >
                   Ingresar al panel
                 </button>
+
+                {success && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+                    {success}
+                  </div>
+                )}
 
                 {error && (
                   <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
