@@ -187,3 +187,33 @@ export async function updateUserPassword(
     email: user.email,
   };
 }
+
+export async function resetUserPassword(id: string) {
+  await connectDB();
+
+  if (!Types.ObjectId.isValid(id)) {
+    throw new Error("ID de usuario inválido");
+  }
+
+  const user = await User.findById(id);
+
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+  const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+  user.password = hashedPassword;
+  user.mustChangePassword = true;
+  await user.save();
+
+  return {
+    user: {
+      _id: String(user._id),
+      nombre: user.nombre,
+      email: user.email,
+    },
+    temporaryPassword,
+  };
+}

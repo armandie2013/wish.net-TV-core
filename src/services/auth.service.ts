@@ -51,7 +51,7 @@ export async function loginUser(data: LoginInput) {
     token,
     mustChangePassword: user.mustChangePassword,
     user: {
-      id: String(user._id),
+      _id: String(user._id),
       nombre: user.nombre,
       email: user.email,
       rol: user.rol,

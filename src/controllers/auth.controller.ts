@@ -6,6 +6,8 @@ import User from "@/models/User";
 import { connectDB } from "@/lib/db";
 import { updateUserPasswordSchema } from "@/validations/user.validation";
 import { updateUserPassword } from "@/services/user.service";
+import { buildUrlFromRequest } from "@/lib/request-url";
+import { createSystemLog } from "@/services/system-log.service";
 
 export async function loginController(request: Request) {
   try {
@@ -28,19 +30,27 @@ export async function loginController(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.redirect(
-        new URL("/login?error=datos-invalidos", request.url),
+        buildUrlFromRequest(request, "/login?error=datos-invalidos"),
         303
       );
     }
 
     const result = await loginUser(parsed.data);
 
+    await createSystemLog({
+      action: "AUTH_LOGIN",
+      message: "Inicio de sesión exitoso",
+      actorId: result.user._id,
+      actorName: result.user.nombre,
+      actorEmail: result.user.email,
+    });
+
     const destination = result.mustChangePassword
       ? "/change-password"
       : "/dashboard";
 
     const response = NextResponse.redirect(
-      new URL(destination, request.url),
+      buildUrlFromRequest(request, destination),
       303
     );
 
@@ -55,7 +65,7 @@ export async function loginController(request: Request) {
     return response;
   } catch {
     return NextResponse.redirect(
-      new URL("/login?error=credenciales", request.url),
+      buildUrlFromRequest(request, "/login?error=credenciales"),
       303
     );
   }
@@ -112,13 +122,19 @@ export async function changeOwnPasswordController(request: Request) {
     const token = tokenMatch?.[1];
 
     if (!token) {
-      return NextResponse.redirect(new URL("/login", request.url), 303);
+      return NextResponse.redirect(
+        buildUrlFromRequest(request, "/login"),
+        303
+      );
     }
 
     const payload = verifyAuthToken(token);
 
     if (!payload) {
-      return NextResponse.redirect(new URL("/login", request.url), 303);
+      return NextResponse.redirect(
+        buildUrlFromRequest(request, "/login"),
+        303
+      );
     }
 
     const formData = await request.formData();
@@ -132,22 +148,41 @@ export async function changeOwnPasswordController(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.redirect(
-        new URL("/change-password?error=datos-invalidos", request.url),
+        buildUrlFromRequest(request, "/change-password?error=datos-invalidos"),
         303
       );
     }
 
-    await updateUserPassword(payload.sub, parsed.data);
+    const updatedUser = await updateUserPassword(payload.sub, parsed.data);
 
-    return NextResponse.redirect(new URL("/dashboard", request.url), 303);
+    await createSystemLog({
+      action: "AUTH_CHANGE_OWN_PASSWORD",
+      message: "El usuario cambió su contraseña",
+      actorId: updatedUser._id,
+      actorName: updatedUser.nombre,
+      actorEmail: updatedUser.email,
+    });
+
+    const response = NextResponse.redirect(
+      buildUrlFromRequest(request, "/login?success=password-changed"),
+      303
+    );
+
+    response.cookies.set("auth_token", "", {
+      httpOnly: true,
+      expires: new Date(0),
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error al cambiar contraseña";
 
     return NextResponse.redirect(
-      new URL(
-        `/change-password?error=${encodeURIComponent(message)}`,
-        request.url
+      buildUrlFromRequest(
+        request,
+        `/change-password?error=${encodeURIComponent(message)}`
       ),
       303
     );
