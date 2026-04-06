@@ -137,6 +137,7 @@ export async function createUserController(request: Request) {
         estado: formData.get("estado"),
         localidad: formData.get("localidad"),
         conexionesPermitidas: formData.get("conexionesPermitidas"),
+        planId: formData.get("planId"),
       };
     }
 
@@ -280,6 +281,7 @@ export async function updateUserController(
       estado: formData.get("estado"),
       localidad: formData.get("localidad"),
       conexionesPermitidas: formData.get("conexionesPermitidas"),
+      planId: formData.get("planId"),
     };
 
     const parsed = updateUserSchema.safeParse(rawData);

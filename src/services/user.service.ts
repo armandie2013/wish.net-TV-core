@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { Types } from "mongoose";
 import User from "@/models/User";
+import "@/models/Plan";
 import { connectDB } from "@/lib/db";
 import { generateTemporaryPassword } from "@/lib/password";
 import type {
@@ -9,19 +10,27 @@ import type {
   UpdateUserPasswordInput,
 } from "@/validations/user.validation";
 
+
 export async function getAllUsers() {
   await connectDB();
 
   const users = await User.find({})
+    .populate("planId", "nombre")
     .select(
-      "nombre email rol estado localidad conexionesPermitidas createdAt mustChangePassword"
+      "nombre email rol estado localidad conexionesPermitidas createdAt mustChangePassword planId"
     )
     .sort({ createdAt: -1 })
     .lean();
 
-  return users.map((user) => ({
+  return users.map((user: any) => ({
     ...user,
     _id: String(user._id),
+    planId: user.planId
+      ? {
+          _id: String(user.planId._id),
+          nombre: user.planId.nombre,
+        }
+      : null,
   }));
 }
 
@@ -48,18 +57,29 @@ export async function createUser(data: CreateUserInput) {
     localidad: data.localidad,
     conexionesPermitidas: data.conexionesPermitidas,
     mustChangePassword: true,
+    planId: data.planId || null,
   });
+
+  const populatedUser = await User.findById(user._id)
+    .populate("planId", "nombre")
+    .lean();
 
   return {
     user: {
-      _id: String(user._id),
-      nombre: user.nombre,
-      email: user.email,
-      rol: user.rol,
-      estado: user.estado,
-      localidad: user.localidad,
-      conexionesPermitidas: user.conexionesPermitidas,
-      mustChangePassword: user.mustChangePassword,
+      _id: String((populatedUser as any)!._id),
+      nombre: (populatedUser as any)!.nombre,
+      email: (populatedUser as any)!.email,
+      rol: (populatedUser as any)!.rol,
+      estado: (populatedUser as any)!.estado,
+      localidad: (populatedUser as any)!.localidad,
+      conexionesPermitidas: (populatedUser as any)!.conexionesPermitidas,
+      mustChangePassword: (populatedUser as any)!.mustChangePassword,
+      planId: (populatedUser as any)!.planId
+        ? {
+            _id: String((populatedUser as any)!.planId._id),
+            nombre: (populatedUser as any)!.planId.nombre,
+          }
+        : null,
     },
     temporaryPassword,
   };
@@ -73,8 +93,9 @@ export async function getUserById(id: string) {
   }
 
   const user = await User.findById(id)
+    .populate("planId", "nombre")
     .select(
-      "nombre email rol estado localidad conexionesPermitidas mustChangePassword"
+      "nombre email rol estado localidad conexionesPermitidas mustChangePassword planId"
     )
     .lean();
 
@@ -83,8 +104,14 @@ export async function getUserById(id: string) {
   }
 
   return {
-    ...user,
-    _id: String(user._id),
+    ...(user as any),
+    _id: String((user as any)._id),
+    planId: (user as any).planId
+      ? {
+          _id: String((user as any).planId._id),
+          nombre: (user as any).planId.nombre,
+        }
+      : null,
   };
 }
 
@@ -113,11 +140,13 @@ export async function updateUser(id: string, data: UpdateUserInput) {
       estado: data.estado,
       localidad: data.localidad,
       conexionesPermitidas: data.conexionesPermitidas,
+      planId: data.planId || null,
     },
     { new: true, runValidators: true }
   )
+    .populate("planId", "nombre")
     .select(
-      "nombre email rol estado localidad conexionesPermitidas mustChangePassword"
+      "nombre email rol estado localidad conexionesPermitidas mustChangePassword planId"
     )
     .lean();
 
@@ -126,8 +155,14 @@ export async function updateUser(id: string, data: UpdateUserInput) {
   }
 
   return {
-    ...user,
-    _id: String(user._id),
+    ...(user as any),
+    _id: String((user as any)._id),
+    planId: (user as any).planId
+      ? {
+          _id: String((user as any).planId._id),
+          nombre: (user as any).planId.nombre,
+        }
+      : null,
   };
 }
 
@@ -138,7 +173,7 @@ export async function toggleUserStatus(id: string) {
     throw new Error("ID de usuario inválido");
   }
 
-  const user = await User.findById(id);
+  const user = await User.findById(id).populate("planId", "nombre");
 
   if (!user) {
     throw new Error("Usuario no encontrado");
@@ -156,6 +191,12 @@ export async function toggleUserStatus(id: string) {
     localidad: user.localidad,
     conexionesPermitidas: user.conexionesPermitidas,
     mustChangePassword: user.mustChangePassword,
+    planId: user.planId
+      ? {
+          _id: String((user.planId as any)._id),
+          nombre: (user.planId as any).nombre,
+        }
+      : null,
   };
 }
 

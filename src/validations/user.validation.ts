@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+const planIdSchema = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .transform((value) => (value ? value : ""));
+
 export const createUserSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   email: z.string().email("Email inválido"),
@@ -7,6 +14,7 @@ export const createUserSchema = z.object({
   estado: z.enum(["activo", "suspendido"]),
   localidad: z.string().min(2, "La localidad es obligatoria"),
   conexionesPermitidas: z.coerce.number().min(1, "Debe ser al menos 1"),
+  planId: planIdSchema,
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -18,6 +26,7 @@ export const updateUserSchema = z.object({
   estado: z.enum(["activo", "suspendido"]),
   localidad: z.string().min(2, "La localidad es obligatoria"),
   conexionesPermitidas: z.coerce.number().min(1, "Debe ser al menos 1"),
+  planId: planIdSchema,
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

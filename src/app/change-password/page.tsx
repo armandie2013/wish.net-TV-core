@@ -28,16 +28,16 @@ export default function ChangePasswordPage({
       : "";
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10 transition-colors dark:bg-slate-950">
-      <div className="mx-auto max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
-        <div className="border-b border-slate-200 bg-gradient-to-r from-blue-50 via-white to-white px-6 py-6 dark:border-slate-700 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
+    <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <div className="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl">
+        <div className="border-b border-slate-800 px-6 py-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-400">
             Seguridad
           </p>
-          <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
             Cambiá tu contraseña
           </h1>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          <p className="mt-2 text-sm text-slate-400">
             Es obligatorio cambiar la contraseña temporal antes de continuar.
           </p>
         </div>
@@ -48,45 +48,55 @@ export default function ChangePasswordPage({
           className="space-y-6 p-6"
         >
           <div className="grid gap-5 md:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Nueva contraseña
-              </label>
-              <input
-                type="password"
-                name="password"
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-                required
-              />
-            </div>
+            <PasswordField
+              label="Nueva contraseña"
+              name="password"
+            />
 
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Confirmar contraseña
-              </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-                required
-              />
-            </div>
+            <PasswordField
+              label="Confirmar contraseña"
+              name="confirmPassword"
+            />
           </div>
 
           {error && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500"
-          >
-            Guardar nueva contraseña
-          </button>
+          <div className="border-t border-slate-800 pt-5">
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-400 transition hover:bg-cyan-500/20"
+            >
+              Guardar nueva contraseña
+            </button>
+          </div>
         </form>
       </div>
     </main>
+  );
+}
+
+function PasswordField({
+  label,
+  name,
+}: {
+  label: string;
+  name: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-semibold text-slate-200">
+        {label}
+      </label>
+      <input
+        type="password"
+        name={name}
+        required
+        className="w-full rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none focus:ring-4 focus:ring-cyan-500/10"
+      />
+    </div>
   );
 }
