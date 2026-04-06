@@ -1,36 +1,39 @@
-import { Schema, model, models, type InferSchemaType } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
 const userSchema = new Schema(
   {
     nombre: {
       type: String,
-      required: [true, "El nombre es obligatorio"],
+      required: true,
       trim: true,
     },
     email: {
       type: String,
-      required: [true, "El email es obligatorio"],
+      required: true,
       unique: true,
-      lowercase: true,
       trim: true,
+      lowercase: true,
     },
     password: {
       type: String,
-      required: [true, "La contraseña es obligatoria"],
+      required: true,
     },
     rol: {
       type: String,
       enum: ["admin", "operador", "cliente"],
       default: "cliente",
+      required: true,
     },
     estado: {
       type: String,
       enum: ["activo", "suspendido"],
       default: "activo",
+      required: true,
     },
     localidad: {
       type: String,
       default: "principal",
+      trim: true,
     },
     conexionesPermitidas: {
       type: Number,
@@ -39,7 +42,17 @@ const userSchema = new Schema(
     },
     mustChangePassword: {
       type: Boolean,
-      default: false,
+      default: true,
+    },
+    planId: {
+      type: Schema.Types.ObjectId,
+      ref: "Plan",
+      default: null,
+    },
+    playlistToken: {
+      type: String,
+      default: null,
+      index: true,
     },
     lastSeen: {
       type: Date,
@@ -48,13 +61,8 @@ const userSchema = new Schema(
   },
   {
     timestamps: true,
-    versionKey: false,
   }
 );
-
-export type IUser = InferSchemaType<typeof userSchema> & {
-  _id: string;
-};
 
 const User = models.User || model("User", userSchema);
 

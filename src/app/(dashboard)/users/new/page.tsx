@@ -1,166 +1,5 @@
-// import { cookies } from "next/headers";
-// import { redirect } from "next/navigation";
-// import { verifyAuthToken } from "@/lib/auth";
-
-// export default function NewUserPage({
-//   searchParams,
-// }: {
-//   searchParams?: { error?: string };
-// }) {
-//   const cookieStore = cookies();
-//   const token = cookieStore.get("auth_token")?.value;
-
-//   if (!token) {
-//     redirect("/login");
-//   }
-
-//   const payload = verifyAuthToken(token);
-
-//   if (!payload) {
-//     redirect("/login");
-//   }
-
-//   const error =
-//     searchParams?.error === "datos-invalidos"
-//       ? "Revisá los datos ingresados"
-//       : searchParams?.error
-//       ? decodeURIComponent(searchParams.error)
-//       : "";
-
-//   return (
-//     <section className="space-y-6">
-//       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
-//         <div className="border-b border-slate-200 bg-gradient-to-r from-blue-50 via-white to-white px-6 py-6 dark:border-slate-700 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800">
-//           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
-//             Usuarios
-//           </p>
-//           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-//             Nuevo usuario
-//           </h1>
-//           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-//             Creá una nueva cuenta para el sistema. La contraseña temporal se
-//             generará automáticamente y el usuario deberá cambiarla en su primer
-//             ingreso.
-//           </p>
-//         </div>
-
-//         <form action="/api/users" method="POST" className="space-y-6 p-6">
-//           <div className="grid gap-5 md:grid-cols-2">
-//             <div>
-//               <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-//                 Nombre
-//               </label>
-//               <input
-//                 type="text"
-//                 name="nombre"
-//                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-//                 required
-//               />
-//             </div>
-
-//             <div>
-//               <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-//                 Email
-//               </label>
-//               <input
-//                 type="email"
-//                 name="email"
-//                 autoComplete="email"
-//                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-//                 required
-//               />
-//             </div>
-
-//             <div>
-//               <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-//                 Localidad
-//               </label>
-//               <input
-//                 type="text"
-//                 name="localidad"
-//                 defaultValue="principal"
-//                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-//                 required
-//               />
-//             </div>
-
-//             <div>
-//               <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-//                 Rol
-//               </label>
-//               <select
-//                 name="rol"
-//                 defaultValue="cliente"
-//                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-//               >
-//                 <option value="admin">Admin</option>
-//                 <option value="operador">Operador</option>
-//                 <option value="cliente">Cliente</option>
-//               </select>
-//             </div>
-
-//             <div>
-//               <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-//                 Estado
-//               </label>
-//               <select
-//                 name="estado"
-//                 defaultValue="activo"
-//                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-//               >
-//                 <option value="activo">Activo</option>
-//                 <option value="suspendido">Suspendido</option>
-//               </select>
-//             </div>
-
-//             <div>
-//               <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-//                 Conexiones permitidas
-//               </label>
-//               <input
-//                 type="number"
-//                 name="conexionesPermitidas"
-//                 defaultValue={1}
-//                 min={1}
-//                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-//                 required
-//               />
-//             </div>
-//           </div>
-
-//           <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
-//             La contraseña inicial se genera automáticamente y se mostrará una
-//             sola vez al crear el usuario.
-//           </div>
-
-//           {error && (
-//             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-//               {error}
-//             </div>
-//           )}
-
-//           <div className="flex flex-wrap items-center gap-3">
-//             <button
-//               type="submit"
-//               className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500"
-//             >
-//               Guardar usuario
-//             </button>
-
-//             <a
-//               href="/users"
-//               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
-//             >
-//               Volver al listado
-//             </a>
-//           </div>
-//         </form>
-//       </div>
-//     </section>
-//   );
-// }
-
 import { requireAdminPageAccess } from "@/lib/auth-guards";
+import { getAllPlans } from "@/services/plan.service";
 
 export default async function NewUserPage({
   searchParams,
@@ -168,6 +7,8 @@ export default async function NewUserPage({
   searchParams?: { error?: string };
 }) {
   await requireAdminPageAccess();
+
+  const plans = await getAllPlans();
 
   const error =
     searchParams?.error === "datos-invalidos"
@@ -178,15 +19,15 @@ export default async function NewUserPage({
 
   return (
     <section className="space-y-6">
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
-        <div className="border-b border-slate-200 bg-gradient-to-r from-blue-50 via-white to-white px-6 py-6 dark:border-slate-700 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
+      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl">
+        <div className="border-b border-slate-800 px-6 py-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-400">
             Usuarios
           </p>
-          <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
             Nuevo usuario
           </h1>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          <p className="mt-2 max-w-3xl text-sm text-slate-400">
             Creá una nueva cuenta para el sistema. La contraseña temporal se
             generará automáticamente y el usuario deberá cambiarla en su primer
             ingreso.
@@ -194,117 +35,141 @@ export default async function NewUserPage({
         </div>
 
         <form action="/api/users" method="POST" className="space-y-6 p-6">
-          <div className="grid gap-5 md:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Nombre
-              </label>
-              <input
-                type="text"
-                name="nombre"
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-                required
-              />
-            </div>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Field label="Nombre" name="nombre" required />
 
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                autoComplete="email"
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-                required
-              />
-            </div>
+            <Field label="Email" name="email" type="email" required />
 
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Localidad
-              </label>
-              <input
-                type="text"
-                name="localidad"
-                defaultValue="principal"
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-                required
-              />
-            </div>
+            <Field
+              label="Localidad"
+              name="localidad"
+              defaultValue="principal"
+              required
+            />
 
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Rol
-              </label>
-              <select
-                name="rol"
-                defaultValue="cliente"
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-              >
-                <option value="admin">Admin</option>
-                <option value="operador">Operador</option>
-                <option value="cliente">Cliente</option>
-              </select>
-            </div>
+            <SelectField label="Rol" name="rol" defaultValue="cliente">
+              <option value="admin">Admin</option>
+              <option value="operador">Operador</option>
+              <option value="cliente">Cliente</option>
+            </SelectField>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Estado
-              </label>
-              <select
-                name="estado"
-                defaultValue="activo"
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-              >
-                <option value="activo">Activo</option>
-                <option value="suspendido">Suspendido</option>
-              </select>
-            </div>
+            <SelectField label="Estado" name="estado" defaultValue="activo">
+              <option value="activo">Activo</option>
+              <option value="suspendido">Suspendido</option>
+            </SelectField>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Conexiones permitidas
-              </label>
-              <input
-                type="number"
-                name="conexionesPermitidas"
-                defaultValue={1}
-                min={1}
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-950"
-                required
-              />
+            <Field
+              label="Conexiones permitidas"
+              name="conexionesPermitidas"
+              type="number"
+              defaultValue={1}
+              min={1}
+              required
+            />
+
+            <div className="lg:col-span-2">
+              <SelectField label="Plan asignado" name="planId" defaultValue="">
+                <option value="">Sin plan</option>
+                {plans
+                  .filter((plan) => plan.estado === "activo")
+                  .map((plan) => (
+                    <option key={plan._id} value={plan._id}>
+                      {plan.nombre}
+                    </option>
+                  ))}
+              </SelectField>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
+          <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-300">
             La contraseña inicial se genera automáticamente y se mostrará una
             sola vez al crear el usuario.
           </div>
 
           {error && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
               {error}
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500"
-            >
-              Guardar usuario
-            </button>
+          <div className="border-t border-slate-800 pt-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-400 transition hover:bg-cyan-500/20"
+              >
+                Guardar usuario
+              </button>
 
-            <a
-              href="/users"
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
-            >
-              Volver al listado
-            </a>
+              <a
+                href="/users"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-800 bg-slate-950/60 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-800/80"
+              >
+                Volver al listado
+              </a>
+            </div>
           </div>
         </form>
       </div>
     </section>
+  );
+}
+
+function Field({
+  label,
+  name,
+  type = "text",
+  required,
+  defaultValue,
+  min,
+}: {
+  label: string;
+  name: string;
+  type?: string;
+  required?: boolean;
+  defaultValue?: string | number;
+  min?: number;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-semibold text-slate-200">
+        {label}
+      </label>
+      <input
+        type={type}
+        name={name}
+        defaultValue={defaultValue}
+        min={min}
+        required={required}
+        className="w-full rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none focus:ring-4 focus:ring-cyan-500/10"
+      />
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  name,
+  defaultValue,
+  children,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-semibold text-slate-200">
+        {label}
+      </label>
+      <select
+        name={name}
+        defaultValue={defaultValue}
+        className="w-full rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500/50 focus:outline-none focus:ring-4 focus:ring-cyan-500/10"
+      >
+        {children}
+      </select>
+    </div>
   );
 }

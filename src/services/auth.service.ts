@@ -80,5 +80,6 @@ export async function createInitialAdmin() {
     localidad: "principal",
     conexionesPermitidas: 3,
     mustChangePassword: false,
+    planId: null,
   });
 }
