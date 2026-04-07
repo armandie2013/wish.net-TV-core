@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import Channel from "@/models/Channel";
 import "@/models/Plan";
+import { resolveChannelStream } from "@/services/channel-play.service";
 
 type AppChannel = {
   id: string;
@@ -240,65 +241,82 @@ export async function getChannelPlayController(
     }
 
     const user = auth.user as any;
-    const plan = user.planId;
 
-    const allowedChannels = (plan.canalesPermitidos || []).filter(
-      (channel: any) => channel && channel.estado === "activo"
-    );
-
-    const channelFromPlan = allowedChannels.find(
-      (channel: any) => String(channel._id) === params.id
-    );
-
-    if (!channelFromPlan) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "El canal no está disponible para este usuario",
-        },
-        { status: 403 }
-      );
-    }
-
-    const channel = await Channel.findById(params.id)
-      .select("nombre categoria logo urlOrigen tvgId estado")
-      .lean();
-
-    if (!channel) {
-      return NextResponse.json(
-        { ok: false, message: "Canal no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    if ((channel as any).estado !== "activo") {
-      return NextResponse.json(
-        { ok: false, message: "Canal inactivo" },
-        { status: 403 }
-      );
-    }
+    const resolved = await resolveChannelStream(String(user._id), params.id);
 
     return NextResponse.json(
       {
         ok: true,
-        channel: {
-          id: String((channel as any)._id),
-          name: (channel as any).nombre,
-          logo: (channel as any).logo || "",
-          category: (channel as any).categoria || "General",
-          tvgId: (channel as any).tvgId || "",
-          streamUrl: (channel as any).urlOrigen,
-        },
+        strategy: resolved.strategy,
+        fallbackUsed: resolved.fallbackUsed,
+        user: resolved.user,
+        location: resolved.location,
+        node: resolved.node,
+        channel: resolved.channel,
         playback: {
-          mode: "direct",
+          mode: "resolved",
+          streamUrl: resolved.streamUrl,
+          directSourceUrl: resolved.directSourceUrl,
         },
       },
       { status: 200 }
     );
-  } catch {
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error interno";
+
+    const status =
+      message === "El canal no está disponible para este usuario"
+        ? 403
+        : message === "Canal no encontrado"
+        ? 404
+        : message === "Canal inválido"
+        ? 400
+        : 500;
+
     return NextResponse.json(
-      { ok: false, message: "Error interno" },
-      { status: 500 }
+      { ok: false, message },
+      { status }
+    );
+  }
+}
+
+export async function getChannelStreamRedirectController(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const auth = await getAuthenticatedUserWithPlan(request);
+
+    if (auth.error) {
+      return auth.error;
+    }
+
+    const user = auth.user as any;
+
+    const resolved = await resolveChannelStream(String(user._id), params.id);
+
+    return NextResponse.redirect(resolved.streamUrl, 302);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error interno";
+
+    const status =
+      message === "El canal no está disponible para este usuario"
+        ? 403
+        : message === "Canal no encontrado"
+        ? 404
+        : message === "Canal inválido"
+        ? 400
+        : message === "Usuario inactivo"
+        ? 403
+        : message === "Usuario sin plan asignado"
+        ? 400
+        : 500;
+
+    return NextResponse.json(
+      { ok: false, message },
+      { status }
     );
   }
 }

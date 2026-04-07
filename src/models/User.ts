@@ -35,6 +35,11 @@ const userSchema = new Schema(
       default: "principal",
       trim: true,
     },
+    localidadId: {
+      type: Schema.Types.ObjectId,
+      ref: "LocationNode",
+      default: null,
+    },
     conexionesPermitidas: {
       type: Number,
       default: 1,

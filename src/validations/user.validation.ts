@@ -1,36 +1,55 @@
 import { z } from "zod";
 
-const planIdSchema = z
+// 🔹 reutilizable para ObjectId opcional (plan, localidad, etc.)
+const optionalObjectId = z
   .string()
   .trim()
   .optional()
   .or(z.literal(""))
   .transform((value) => (value ? value : ""));
 
+// 🔹 CREATE
 export const createUserSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   email: z.string().email("Email inválido"),
   rol: z.enum(["admin", "operador", "cliente"]),
   estado: z.enum(["activo", "suspendido"]),
+
+  // 👇 esto lo dejamos como texto (UI)
   localidad: z.string().min(2, "La localidad es obligatoria"),
-  conexionesPermitidas: z.coerce.number().min(1, "Debe ser al menos 1"),
-  planId: planIdSchema,
+
+  // 👇 NUEVO (relación real con Localidades)
+  localidadId: optionalObjectId,
+
+  conexionesPermitidas: z.coerce
+    .number()
+    .min(1, "Debe ser al menos 1"),
+
+  planId: optionalObjectId,
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
+// 🔹 UPDATE
 export const updateUserSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   email: z.string().email("Email inválido"),
   rol: z.enum(["admin", "operador", "cliente"]),
   estado: z.enum(["activo", "suspendido"]),
+
   localidad: z.string().min(2, "La localidad es obligatoria"),
-  conexionesPermitidas: z.coerce.number().min(1, "Debe ser al menos 1"),
-  planId: planIdSchema,
+  localidadId: optionalObjectId,
+
+  conexionesPermitidas: z.coerce
+    .number()
+    .min(1, "Debe ser al menos 1"),
+
+  planId: optionalObjectId,
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 
+// 🔹 PASSWORD
 export const updateUserPasswordSchema = z
   .object({
     password: z
