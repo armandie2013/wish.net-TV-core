@@ -136,6 +136,7 @@ export async function createUserController(request: Request) {
         rol: formData.get("rol"),
         estado: formData.get("estado"),
         localidad: formData.get("localidad"),
+        localidadId: formData.get("localidadId"),
         conexionesPermitidas: formData.get("conexionesPermitidas"),
         planId: formData.get("planId"),
       };
@@ -280,6 +281,7 @@ export async function updateUserController(
       rol: formData.get("rol"),
       estado: formData.get("estado"),
       localidad: formData.get("localidad"),
+      localidadId: formData.get("localidadId"),
       conexionesPermitidas: formData.get("conexionesPermitidas"),
       planId: formData.get("planId"),
     };

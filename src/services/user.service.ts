@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { Types } from "mongoose";
 import User from "@/models/User";
 import "@/models/Plan";
+import "@/models/LocationNode";
 import { connectDB } from "@/lib/db";
 import { generateTemporaryPassword } from "@/lib/password";
 import type {
@@ -10,14 +11,14 @@ import type {
   UpdateUserPasswordInput,
 } from "@/validations/user.validation";
 
-
 export async function getAllUsers() {
   await connectDB();
 
   const users = await User.find({})
     .populate("planId", "nombre")
+    .populate("localidadId", "nombre codigo estado")
     .select(
-      "nombre email rol estado localidad conexionesPermitidas createdAt mustChangePassword planId"
+      "nombre email rol estado localidad localidadId conexionesPermitidas createdAt mustChangePassword planId"
     )
     .sort({ createdAt: -1 })
     .lean();
@@ -29,6 +30,14 @@ export async function getAllUsers() {
       ? {
           _id: String(user.planId._id),
           nombre: user.planId.nombre,
+        }
+      : null,
+    localidadId: user.localidadId
+      ? {
+          _id: String(user.localidadId._id),
+          nombre: user.localidadId.nombre,
+          codigo: user.localidadId.codigo,
+          estado: user.localidadId.estado,
         }
       : null,
   }));
@@ -55,6 +64,7 @@ export async function createUser(data: CreateUserInput) {
     rol: data.rol,
     estado: data.estado,
     localidad: data.localidad,
+    localidadId: data.localidadId || null,
     conexionesPermitidas: data.conexionesPermitidas,
     mustChangePassword: true,
     planId: data.planId || null,
@@ -62,6 +72,7 @@ export async function createUser(data: CreateUserInput) {
 
   const populatedUser = await User.findById(user._id)
     .populate("planId", "nombre")
+    .populate("localidadId", "nombre codigo estado")
     .lean();
 
   return {
@@ -80,6 +91,14 @@ export async function createUser(data: CreateUserInput) {
             nombre: (populatedUser as any)!.planId.nombre,
           }
         : null,
+      localidadId: (populatedUser as any)!.localidadId
+        ? {
+            _id: String((populatedUser as any)!.localidadId._id),
+            nombre: (populatedUser as any)!.localidadId.nombre,
+            codigo: (populatedUser as any)!.localidadId.codigo,
+            estado: (populatedUser as any)!.localidadId.estado,
+          }
+        : null,
     },
     temporaryPassword,
   };
@@ -94,8 +113,9 @@ export async function getUserById(id: string) {
 
   const user = await User.findById(id)
     .populate("planId", "nombre")
+    .populate("localidadId", "nombre codigo estado")
     .select(
-      "nombre email rol estado localidad conexionesPermitidas mustChangePassword planId"
+      "nombre email rol estado localidad localidadId conexionesPermitidas mustChangePassword planId"
     )
     .lean();
 
@@ -110,6 +130,14 @@ export async function getUserById(id: string) {
       ? {
           _id: String((user as any).planId._id),
           nombre: (user as any).planId.nombre,
+        }
+      : null,
+    localidadId: (user as any).localidadId
+      ? {
+          _id: String((user as any).localidadId._id),
+          nombre: (user as any).localidadId.nombre,
+          codigo: (user as any).localidadId.codigo,
+          estado: (user as any).localidadId.estado,
         }
       : null,
   };
@@ -139,14 +167,16 @@ export async function updateUser(id: string, data: UpdateUserInput) {
       rol: data.rol,
       estado: data.estado,
       localidad: data.localidad,
+      localidadId: data.localidadId || null,
       conexionesPermitidas: data.conexionesPermitidas,
       planId: data.planId || null,
     },
     { new: true, runValidators: true }
   )
     .populate("planId", "nombre")
+    .populate("localidadId", "nombre codigo estado")
     .select(
-      "nombre email rol estado localidad conexionesPermitidas mustChangePassword planId"
+      "nombre email rol estado localidad localidadId conexionesPermitidas mustChangePassword planId"
     )
     .lean();
 
@@ -163,6 +193,14 @@ export async function updateUser(id: string, data: UpdateUserInput) {
           nombre: (user as any).planId.nombre,
         }
       : null,
+    localidadId: (user as any).localidadId
+      ? {
+          _id: String((user as any).localidadId._id),
+          nombre: (user as any).localidadId.nombre,
+          codigo: (user as any).localidadId.codigo,
+          estado: (user as any).localidadId.estado,
+        }
+      : null,
   };
 }
 
@@ -173,7 +211,9 @@ export async function toggleUserStatus(id: string) {
     throw new Error("ID de usuario inválido");
   }
 
-  const user = await User.findById(id).populate("planId", "nombre");
+  const user = await User.findById(id)
+    .populate("planId", "nombre")
+    .populate("localidadId", "nombre codigo estado");
 
   if (!user) {
     throw new Error("Usuario no encontrado");
@@ -195,6 +235,14 @@ export async function toggleUserStatus(id: string) {
       ? {
           _id: String((user.planId as any)._id),
           nombre: (user.planId as any).nombre,
+        }
+      : null,
+    localidadId: user.localidadId
+      ? {
+          _id: String((user.localidadId as any)._id),
+          nombre: (user.localidadId as any).nombre,
+          codigo: (user.localidadId as any).codigo,
+          estado: (user.localidadId as any).estado,
         }
       : null,
   };
