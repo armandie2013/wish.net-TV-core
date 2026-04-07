@@ -35,7 +35,7 @@ export const navGroups: NavGroup[] = [
     label: "Administración",
     items: [
       { label: "Usuarios", href: "/users", icon: Users },
-      { label: "Clientes", href: "/clientes", icon: UserRound },
+      // { label: "Clientes", href: "/clientes", icon: UserRound },
       { label: "Planes", href: "/planes", icon: Layers3 },
     ],
   },
@@ -43,7 +43,7 @@ export const navGroups: NavGroup[] = [
     label: "IPTV",
     items: [
       { label: "Canales", href: "/canales", icon: Radio },
-      { label: "Playlists", href: "/playlists", icon: ListVideo },
+      // { label: "Playlists", href: "/playlists", icon: ListVideo },
     ],
   },
   {
