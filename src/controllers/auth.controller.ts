@@ -188,3 +188,67 @@ export async function changeOwnPasswordController(request: Request) {
     );
   }
 }
+
+export async function appLoginController(request: Request) {
+  try {
+    const contentType = request.headers.get("content-type") || "";
+
+    let email = "";
+    let password = "";
+
+    if (contentType.includes("application/json")) {
+      const body = await request.json();
+      email = body.email ?? "";
+      password = body.password ?? "";
+    } else {
+      const formData = await request.formData();
+      email = String(formData.get("email") ?? "");
+      password = String(formData.get("password") ?? "");
+    }
+
+    const parsed = loginSchema.safeParse({ email, password });
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, message: "Datos inválidos" },
+        { status: 400 }
+      );
+    }
+
+    const result = await loginUser(parsed.data);
+    const appUser = result.user as any;
+
+    await createSystemLog({
+      action: "AUTH_LOGIN_APP",
+      message: "Inicio de sesión exitoso desde app",
+      actorId: appUser._id,
+      actorName: appUser.nombre,
+      actorEmail: appUser.email,
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        token: result.token,
+        mustChangePassword: result.mustChangePassword,
+        user: {
+          _id: appUser._id,
+          nombre: appUser.nombre,
+          email: appUser.email,
+          rol: appUser.rol,
+          estado: appUser.estado,
+          localidad: appUser.localidad || "principal",
+        },
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Credenciales inválidas";
+
+    return NextResponse.json(
+      { ok: false, message },
+      { status: 401 }
+    );
+  }
+}
