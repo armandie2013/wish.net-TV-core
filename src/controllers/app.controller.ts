@@ -7,6 +7,8 @@ import "@/models/Plan";
 import { resolveChannelStream } from "@/services/channel-play.service";
 import { loginSchema } from "@/validations/auth.validation";
 import { loginUser } from "@/services/auth.service";
+import { updateUserPasswordSchema } from "@/validations/user.validation";
+import { updateUserPassword } from "@/services/user.service";
 import { createSystemLog } from "@/services/system-log.service";
 
 type AppChannel = {
@@ -390,6 +392,68 @@ export async function appLoginController(request: Request) {
     return NextResponse.json(
       { ok: false, message },
       { status: 401 }
+    );
+  }
+}
+
+export async function appChangePasswordController(request: Request) {
+  try {
+    const token = getAuthTokenFromRequest(request);
+
+    if (!token) {
+      return NextResponse.json(
+        { ok: false, message: "No autenticado" },
+        { status: 401 }
+      );
+    }
+
+    const payload = verifyAuthToken(token);
+
+    if (!payload) {
+      return NextResponse.json(
+        { ok: false, message: "Token inválido" },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+
+    const parsed = updateUserPasswordSchema.safeParse({
+      password: body.password,
+      confirmPassword: body.confirmPassword,
+    });
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, message: "Datos inválidos" },
+        { status: 400 }
+      );
+    }
+
+    const updatedUser = await updateUserPassword(payload.sub, parsed.data);
+
+    await createSystemLog({
+      action: "AUTH_CHANGE_OWN_PASSWORD_APP",
+      message: "El usuario cambió su contraseña desde la app",
+      actorId: updatedUser._id,
+      actorName: updatedUser.nombre,
+      actorEmail: updatedUser.email,
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        message: "Contraseña actualizada correctamente",
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al cambiar contraseña";
+
+    return NextResponse.json(
+      { ok: false, message },
+      { status: 400 }
     );
   }
 }
