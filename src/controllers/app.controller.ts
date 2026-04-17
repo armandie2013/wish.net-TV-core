@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
-import Channel from "@/models/Channel";
+import "@/models/Channel";
 import "@/models/Plan";
 import { resolveChannelStream } from "@/services/channel-play.service";
 import { loginSchema } from "@/validations/auth.validation";
@@ -11,12 +11,15 @@ import { updateUserPasswordSchema } from "@/validations/user.validation";
 import { updateUserPassword } from "@/services/user.service";
 import { createSystemLog } from "@/services/system-log.service";
 
-type AppChannel = {
+type AppGridChannel = {
+  numero: number;
+  orden: number;
   id: string;
   name: string;
   logo: string;
-  streamUrl: string;
   category: string;
+  sourceName: string;
+  enabled: boolean;
 };
 
 function getAuthTokenFromRequest(request: Request) {
@@ -29,6 +32,76 @@ function getAuthTokenFromRequest(request: Request) {
   const cookieHeader = request.headers.get("cookie") || "";
   const tokenMatch = cookieHeader.match(/auth_token=([^;]+)/);
   return tokenMatch?.[1];
+}
+
+function normalizeChannelDocument(channel: any) {
+  if (!channel) return null;
+
+  return {
+    _id: String(channel._id),
+    nombre: channel.nombre || "",
+    categoria: channel.categoria || "General",
+    logo: channel.logo || "",
+    sourceName: channel.sourceName || "",
+    estado: channel.estado || "activo",
+    tvgId: channel.tvgId || "",
+    urlOrigen: channel.urlOrigen || "",
+  };
+}
+
+function buildGridFromPlan(plan: any): AppGridChannel[] {
+  const rawGrid = Array.isArray(plan.grillaCanales) ? plan.grillaCanales : [];
+
+  if (rawGrid.length > 0) {
+    return rawGrid
+      .map((item: any, index: number) => {
+        const channel =
+          item.channelId && typeof item.channelId === "object"
+            ? normalizeChannelDocument(item.channelId)
+            : null;
+
+        if (!channel) return null;
+        if (channel.estado !== "activo") return null;
+        if (!item.habilitado) return null;
+
+        return {
+          numero: Number(item.numero || index + 1),
+          orden: Number(item.orden || index + 1),
+          id: String(channel._id),
+          name: item.nombreVisible?.trim() || channel.nombre,
+          logo: item.logo || channel.logo || "",
+          category: item.categoria || channel.categoria || "General",
+          sourceName: item.sourceName || channel.sourceName || "",
+          enabled: true,
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => a.orden - b.orden);
+  }
+
+  const fallbackChannels = Array.isArray(plan.canalesPermitidos)
+    ? plan.canalesPermitidos
+    : [];
+
+  return fallbackChannels
+    .map((channel: any, index: number) => {
+      const normalized = normalizeChannelDocument(channel);
+
+      if (!normalized) return null;
+      if (normalized.estado !== "activo") return null;
+
+      return {
+        numero: index + 1,
+        orden: index + 1,
+        id: normalized._id,
+        name: normalized.nombre,
+        logo: normalized.logo || "",
+        category: normalized.categoria || "General",
+        sourceName: normalized.sourceName || "",
+        enabled: true,
+      };
+    })
+    .filter(Boolean) as AppGridChannel[];
 }
 
 async function getAuthenticatedUserWithPlan(request: Request) {
@@ -74,10 +147,16 @@ async function getAuthenticatedUserWithPlan(request: Request) {
   const user = await User.findById(payload.sub)
     .populate({
       path: "planId",
-      populate: {
-        path: "canalesPermitidos",
-        model: "Channel",
-      },
+      populate: [
+        {
+          path: "canalesPermitidos",
+          model: "Channel",
+        },
+        {
+          path: "grillaCanales.channelId",
+          model: "Channel",
+        },
+      ],
     })
     .select("nombre email rol estado localidad conexionesPermitidas planId")
     .lean();
@@ -141,54 +220,28 @@ export async function getLiveController(request: Request) {
     const user = auth.user as any;
     const plan = user.planId;
 
-    const rawChannels = (plan.canalesPermitidos || []).filter(
-      (channel: any) => channel && channel.estado === "activo"
-    );
-
-    const channels: AppChannel[] = rawChannels.map((ch: any) => ({
-      id: String(ch._id),
-      name: ch.nombre,
-      logo: ch.logo || "",
-      streamUrl: ch.urlOrigen,
-      category: ch.categoria || "General",
-    }));
-
-    const groupedMap = new Map<string, AppChannel[]>();
-
-    for (const channel of channels) {
-      const key = channel.category || "General";
-
-      if (!groupedMap.has(key)) {
-        groupedMap.set(key, []);
-      }
-
-      groupedMap.get(key)!.push(channel);
-    }
-
-    const categories = Array.from(groupedMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b, "es"))
-      .map(([name, items]) => ({
-        name,
-        totalChannels: items.length,
-        channels: items.sort((a, b) => a.name.localeCompare(b.name, "es")),
-      }));
+    const grid = buildGridFromPlan(plan);
 
     return NextResponse.json(
       {
         ok: true,
+        mode: "linear-tv",
         user: {
           id: String(user._id),
           nombre: user.nombre,
           email: user.email,
           rol: user.rol,
           localidad: user.localidad || "principal",
-          plan: plan.nombre,
+        },
+        plan: {
+          id: String(plan._id),
+          nombre: plan.nombre,
+          estado: plan.estado,
         },
         summary: {
-          totalCategories: categories.length,
-          totalChannels: channels.length,
+          totalChannels: grid.length,
         },
-        categories,
+        grid,
       },
       { status: 200 }
     );
@@ -252,6 +305,10 @@ export async function getChannelPlayController(
     }
 
     const user = auth.user as any;
+    const plan = user.planId;
+
+    const grid = buildGridFromPlan(plan);
+    const gridItem = grid.find((item) => item.id === params.id) || null;
 
     const resolved = await resolveChannelStream(String(user._id), params.id);
 
@@ -263,7 +320,13 @@ export async function getChannelPlayController(
         user: resolved.user,
         location: resolved.location,
         node: resolved.node,
-        channel: resolved.channel,
+        channel: {
+          ...resolved.channel,
+          numero: gridItem?.numero ?? null,
+          orden: gridItem?.orden ?? null,
+          visibleName: gridItem?.name ?? resolved.channel.name,
+          sourceName: gridItem?.sourceName ?? "",
+        },
         playback: {
           mode: "resolved",
           streamUrl: resolved.streamUrl,
@@ -285,10 +348,7 @@ export async function getChannelPlayController(
         ? 400
         : 500;
 
-    return NextResponse.json(
-      { ok: false, message },
-      { status }
-    );
+    return NextResponse.json({ ok: false, message }, { status });
   }
 }
 
@@ -325,10 +385,7 @@ export async function getChannelStreamRedirectController(
         ? 400
         : 500;
 
-    return NextResponse.json(
-      { ok: false, message },
-      { status }
-    );
+    return NextResponse.json({ ok: false, message }, { status });
   }
 }
 
@@ -389,10 +446,7 @@ export async function appLoginController(request: Request) {
     const message =
       error instanceof Error ? error.message : "Credenciales inválidas";
 
-    return NextResponse.json(
-      { ok: false, message },
-      { status: 401 }
-    );
+    return NextResponse.json({ ok: false, message }, { status: 401 });
   }
 }
 
@@ -430,11 +484,11 @@ export async function appChangePasswordController(request: Request) {
       );
     }
 
-    const updatedUser = await updateUserPassword(payload.sub, parsed.data);
+    const updatedUser = await updateUserPassword(payload.sub, parsed.data.password);
 
     await createSystemLog({
-      action: "AUTH_CHANGE_OWN_PASSWORD_APP",
-      message: "El usuario cambió su contraseña desde la app",
+      action: "AUTH_CHANGE_PASSWORD_APP",
+      message: "Cambio de contraseña exitoso desde app",
       actorId: updatedUser._id,
       actorName: updatedUser.nombre,
       actorEmail: updatedUser.email,
@@ -444,16 +498,21 @@ export async function appChangePasswordController(request: Request) {
       {
         ok: true,
         message: "Contraseña actualizada correctamente",
+        user: {
+          id: String(updatedUser._id),
+          nombre: updatedUser.nombre,
+          email: updatedUser.email,
+          rol: updatedUser.rol,
+          estado: updatedUser.estado,
+          localidad: updatedUser.localidad || "principal",
+        },
       },
       { status: 200 }
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Error al cambiar contraseña";
+      error instanceof Error ? error.message : "No se pudo actualizar la contraseña";
 
-    return NextResponse.json(
-      { ok: false, message },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, message }, { status: 400 });
   }
 }

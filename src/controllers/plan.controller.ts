@@ -116,7 +116,6 @@ export async function createPlanController(request: Request) {
     }
 
     const contentType = request.headers.get("content-type") || "";
-
     let rawData: Record<string, unknown> = {};
 
     if (contentType.includes("application/json")) {
@@ -125,13 +124,13 @@ export async function createPlanController(request: Request) {
       const formData = await request.formData();
 
       rawData = {
-  nombre: formData.get("nombre"),
-  descripcion: formData.get("descripcion"),
-  precio: formData.get("precio"),
-  conexionesPermitidas: formData.get("conexionesPermitidas"),
-  estado: formData.get("estado"),
-  canalesPermitidos: formData.getAll("canalesPermitidos"),
-};
+        nombre: formData.get("nombre"),
+        descripcion: formData.get("descripcion"),
+        precio: formData.get("precio") || 0,
+        estado: formData.get("estado"),
+        cantidadCanales: formData.get("cantidadCanales"),
+        grillaCanalesJson: formData.get("grillaCanalesJson"),
+      };
     }
 
     const parsed = createPlanSchema.safeParse(rawData);
@@ -257,20 +256,38 @@ export async function updatePlanController(
       return guardResponse;
     }
 
-    const formData = await request.formData();
+    const contentType = request.headers.get("content-type") || "";
+    let rawData: Record<string, unknown> = {};
 
-    const rawData = {
-  nombre: formData.get("nombre"),
-  descripcion: formData.get("descripcion"),
-  precio: formData.get("precio"),
-  conexionesPermitidas: formData.get("conexionesPermitidas"),
-  estado: formData.get("estado"),
-  canalesPermitidos: formData.getAll("canalesPermitidos"),
-};
+    if (contentType.includes("application/json")) {
+      rawData = await request.json();
+    } else {
+      const formData = await request.formData();
+
+      rawData = {
+        nombre: formData.get("nombre"),
+        descripcion: formData.get("descripcion"),
+        precio: formData.get("precio") || 0,
+        estado: formData.get("estado"),
+        cantidadCanales: formData.get("cantidadCanales"),
+        grillaCanalesJson: formData.get("grillaCanalesJson"),
+      };
+    }
 
     const parsed = updatePlanSchema.safeParse(rawData);
 
     if (!parsed.success) {
+      if (contentType.includes("application/json")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Datos inválidos",
+            errors: parsed.error.flatten(),
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.redirect(
         buildUrlFromRequest(
           request,
@@ -293,6 +310,17 @@ export async function updatePlanController(
       targetName: updatedPlan.nombre,
     });
 
+    if (contentType.includes("application/json")) {
+      return NextResponse.json(
+        {
+          ok: true,
+          message: "Plan actualizado correctamente",
+          plan: updatedPlan,
+        },
+        { status: 200 }
+      );
+    }
+
     return NextResponse.redirect(
       buildUrlFromRequest(request, "/planes?success=plan-updated"),
       303
@@ -300,6 +328,16 @@ export async function updatePlanController(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error al actualizar plan";
+
+    if ((request.headers.get("content-type") || "").includes("application/json")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message,
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
