@@ -104,8 +104,27 @@ function buildGridFromPlan(plan: any): AppGridChannel[] {
     .filter(Boolean) as AppGridChannel[];
 }
 
+// async function getAuthenticatedUserWithPlan(request: Request) {
+//   const token = getAuthTokenFromRequest(request);
+
+//   if (!token) {
+//     return {
+//       error: NextResponse.json(
+//         { ok: false, message: "No autenticado" },
+//         { status: 401 }
+//       ),
+//       user: null,
+//     };
+//   }
+
 async function getAuthenticatedUserWithPlan(request: Request) {
   const token = getAuthTokenFromRequest(request);
+
+  console.log("[APP AUTH] token present:", Boolean(token));
+  console.log(
+    "[APP AUTH] token preview:",
+    token ? `${token.slice(0, 30)}...` : null
+  );
 
   if (!token) {
     return {
@@ -119,24 +138,13 @@ async function getAuthenticatedUserWithPlan(request: Request) {
 
   const payload = verifyAuthToken(token);
 
+  console.log("[APP AUTH] payload:", payload);
+
   if (!payload) {
     return {
       error: NextResponse.json(
         { ok: false, message: "Token inválido" },
         { status: 401 }
-      ),
-      user: null,
-    };
-  }
-
-  if (payload.mustChangePassword) {
-    return {
-      error: NextResponse.json(
-        {
-          ok: false,
-          message: "Debés cambiar tu contraseña antes de continuar",
-        },
-        { status: 403 }
       ),
       user: null,
     };
@@ -160,6 +168,8 @@ async function getAuthenticatedUserWithPlan(request: Request) {
     })
     .select("nombre email rol estado localidad conexionesPermitidas planId")
     .lean();
+
+  console.log("[APP AUTH] user found:", Boolean(user));
 
   if (!user) {
     return {
@@ -192,6 +202,9 @@ async function getAuthenticatedUserWithPlan(request: Request) {
   }
 
   const plan = (user as any).planId;
+
+  console.log("[APP AUTH] plan found:", Boolean(plan));
+  console.log("[APP AUTH] plan status:", plan?.estado);
 
   if (plan.estado && plan.estado !== "activo") {
     return {

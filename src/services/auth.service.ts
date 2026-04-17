@@ -16,45 +16,40 @@ function getJwtSecret(): string {
 
 const JWT_SECRET = getJwtSecret();
 
-export async function loginUser(data: LoginInput) {
+export async function loginUser(email: string, password: string) {
   await connectDB();
 
-  const user = await User.findOne({ email: data.email.toLowerCase() });
+  const user = await User.findOne({ email });
+  if (!user) throw new Error("Usuario no encontrado");
 
-  if (!user) {
-    throw new Error("Usuario no encontrado");
-  }
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) throw new Error("Contraseña incorrecta");
 
-  if (user.estado !== "activo") {
-    throw new Error("Usuario suspendido");
-  }
-
-  const passwordOk = await bcrypt.compare(data.password, user.password);
-
-  if (!passwordOk) {
-    throw new Error("Contraseña incorrecta");
-  }
+  // 🔥 AGREGAR ACA
+  console.log("[JWT SECRET LOGIN]", process.env.JWT_SECRET);
 
   const token = jwt.sign(
     {
-      sub: String(user._id),
+      sub: user._id,
       email: user.email,
       rol: user.rol,
       localidad: user.localidad,
       mustChangePassword: user.mustChangePassword,
     },
-    JWT_SECRET,
+    process.env.JWT_SECRET!,
     { expiresIn: "8h" }
   );
 
   return {
+    ok: true,
     token,
     mustChangePassword: user.mustChangePassword,
     user: {
-      _id: String(user._id),
+      id: user._id,
       nombre: user.nombre,
       email: user.email,
       rol: user.rol,
+      estado: user.estado,
       localidad: user.localidad,
     },
   };

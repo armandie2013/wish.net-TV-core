@@ -22,10 +22,14 @@ export type AuthTokenPayload = {
   exp?: number;
 };
 
-export function verifyAuthToken(token: string): AuthTokenPayload | null {
+export function verifyAuthToken(token: string) {
   try {
-    return jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
-  } catch {
+    // 🔥 AGREGAR ACA
+    console.log("[JWT SECRET VERIFY]", process.env.JWT_SECRET);
+
+    return jwt.verify(token, process.env.JWT_SECRET!);
+  } catch (error) {
+    console.error("[JWT VERIFY ERROR]", error);
     return null;
   }
 }
