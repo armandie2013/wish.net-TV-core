@@ -7,6 +7,80 @@ function escapeM3uValue(value: string) {
   return String(value ?? "").replace(/"/g, "'");
 }
 
+function normalizeChannelDocument(channel: any) {
+  if (!channel) return null;
+
+  return {
+    _id: String(channel._id),
+    nombre: channel.nombre || "",
+    categoria: channel.categoria || "General",
+    logo: channel.logo || "",
+    urlOrigen: channel.urlOrigen || "",
+    tvgId: channel.tvgId || "",
+    estado: channel.estado || "activo",
+    sourceName: channel.sourceName || "",
+  };
+}
+
+function buildLinearGrid(plan: any) {
+  const rawGrid = Array.isArray(plan.grillaCanales) ? plan.grillaCanales : [];
+
+  if (rawGrid.length > 0) {
+    return rawGrid
+      .map((item: any, index: number) => {
+        const channel =
+          item.channelId && typeof item.channelId === "object"
+            ? normalizeChannelDocument(item.channelId)
+            : null;
+
+        if (!channel) return null;
+        if (channel.estado !== "activo") return null;
+        if (!item.habilitado) return null;
+        if (!channel.urlOrigen) return null;
+
+        return {
+          numero: Number(item.numero || index + 1),
+          orden: Number(item.orden || index + 1),
+          id: channel._id,
+          tvgId: channel.tvgId || "",
+          name: item.nombreVisible?.trim() || channel.nombre || "Canal sin nombre",
+          logo: item.logo || channel.logo || "",
+          category: item.categoria || channel.categoria || "General",
+          sourceName: item.sourceName || channel.sourceName || "",
+          url: channel.urlOrigen,
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => a.orden - b.orden);
+  }
+
+  const fallbackChannels = Array.isArray(plan.canalesPermitidos)
+    ? plan.canalesPermitidos
+    : [];
+
+  return fallbackChannels
+    .map((channel: any, index: number) => {
+      const normalized = normalizeChannelDocument(channel);
+
+      if (!normalized) return null;
+      if (normalized.estado !== "activo") return null;
+      if (!normalized.urlOrigen) return null;
+
+      return {
+        numero: index + 1,
+        orden: index + 1,
+        id: normalized._id,
+        tvgId: normalized.tvgId || "",
+        name: normalized.nombre || "Canal sin nombre",
+        logo: normalized.logo || "",
+        category: normalized.categoria || "General",
+        sourceName: normalized.sourceName || "",
+        url: normalized.urlOrigen,
+      };
+    })
+    .filter(Boolean);
+}
+
 async function buildPlaylistFromUserDocument(user: any) {
   if (!user) {
     throw new Error("Usuario no encontrado");
@@ -23,9 +97,13 @@ async function buildPlaylistFromUserDocument(user: any) {
   const plan = await Plan.findById(user.planId)
     .populate(
       "canalesPermitidos",
-      "nombre categoria logo urlOrigen tvgId estado"
+      "nombre categoria logo urlOrigen tvgId estado sourceName"
     )
-    .select("nombre estado canalesPermitidos")
+    .populate(
+      "grillaCanales.channelId",
+      "nombre categoria logo urlOrigen tvgId estado sourceName"
+    )
+    .select("nombre estado cantidadCanales canalesPermitidos grillaCanales")
     .lean();
 
   if (!plan) {
@@ -36,20 +114,18 @@ async function buildPlaylistFromUserDocument(user: any) {
     throw new Error("El plan asignado no está activo");
   }
 
-  const channels = ((plan as any).canalesPermitidos || []).filter(
-    (channel: any) => channel && channel.estado === "activo"
-  );
+  const grid = buildLinearGrid(plan);
 
   const lines: string[] = [];
   lines.push("#EXTM3U");
 
-  for (const channel of channels) {
-    const tvgId = escapeM3uValue(channel.tvgId || "");
-    const tvgName = escapeM3uValue(channel.nombre || "");
-    const tvgLogo = escapeM3uValue(channel.logo || "");
-    const groupTitle = escapeM3uValue(channel.categoria || "General");
-    const channelName = channel.nombre || "Canal sin nombre";
-    const url = channel.urlOrigen || "";
+  for (const item of grid) {
+    const tvgId = escapeM3uValue(item.tvgId || "");
+    const tvgName = escapeM3uValue(item.name || "");
+    const tvgLogo = escapeM3uValue(item.logo || "");
+    const groupTitle = escapeM3uValue(item.category || "General");
+    const channelName = item.name || "Canal sin nombre";
+    const url = item.url || "";
 
     if (!url) continue;
 
@@ -77,7 +153,7 @@ async function buildPlaylistFromUserDocument(user: any) {
       _id: String((plan as any)._id),
       nombre: (plan as any).nombre,
     },
-    totalChannels: channels.length,
+    totalChannels: grid.length,
   };
 }
 
