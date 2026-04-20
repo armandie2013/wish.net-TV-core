@@ -97,8 +97,6 @@ const streamingNodeSchema = new Schema(
   }
 );
 
-streamingNodeSchema.index({ codigo: 1 }, { unique: true });
-streamingNodeSchema.index({ urlBase: 1 }, { unique: true });
 streamingNodeSchema.index({ tipo: 1, estado: 1, habilitado: 1, prioridad: 1 });
 
 const StreamingNode =

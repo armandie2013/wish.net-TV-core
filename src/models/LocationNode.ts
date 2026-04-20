@@ -41,7 +41,6 @@ const locationNodeSchema = new Schema(
   }
 );
 
-locationNodeSchema.index({ codigo: 1 }, { unique: true });
 locationNodeSchema.index({ streamingNodeId: 1 });
 locationNodeSchema.index({ fallbackStreamingNodeId: 1 });
 

@@ -69,7 +69,6 @@ const userSchema = new Schema(
   }
 );
 
-userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ localidadId: 1 });
 userSchema.index({ rol: 1, estado: 1 });
 

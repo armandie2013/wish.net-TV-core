@@ -204,7 +204,7 @@ function formatRole(rol?: string) {
   return rol.charAt(0).toUpperCase() + rol.slice(1);
 }
 
-export default function DashboardTopbar() {
+export default function DashboardTopbar({ appName }: { appName: string }) {
   const pathname = usePathname();
   const [user, setUser] = useState<CurrentUser | null>(null);
 
@@ -246,12 +246,15 @@ export default function DashboardTopbar() {
       <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <div className="shrink-0 lg:hidden">
-            <DashboardMobileSidebar />
+            <DashboardMobileSidebar appName={appName} />
           </div>
 
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-400 lg:hidden">
-              wish.net-TV-core
+            <p
+              className="truncate text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-400 lg:hidden"
+              title={appName}
+            >
+              {appName}
             </p>
 
             <DashboardBreadcrumbs />
