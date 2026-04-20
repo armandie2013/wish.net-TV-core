@@ -2,14 +2,16 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyAuthToken } from "@/lib/auth";
 import ThemeToggle from "@/components/ThemeToggle";
+import { getGeneralSettings } from "@/services/general-settings.service";
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
   searchParams?: { error?: string; success?: string };
 }) {
   const cookieStore = cookies();
   const token = cookieStore.get("auth_token")?.value;
+  const settings = await getGeneralSettings();
 
   if (token) {
     const session = verifyAuthToken(token);
@@ -52,7 +54,7 @@ export default function LoginPage({
         <div className="w-full max-w-md">
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-[0_20px_60px_-15px_rgba(15,23,42,0.18)] backdrop-blur-sm transition-colors dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-[0_0_40px_rgba(0,0,0,0.6)] sm:p-8">
             {/* Header técnico */}
-            <div className="mb-6">
+            <div className="mb-6 text-center">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-cyan-700 dark:text-cyan-400">
                   IPTV CORE
@@ -63,12 +65,15 @@ export default function LoginPage({
                 </span>
               </div>
 
-              <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Authentication Required
+              <h1
+                className="mt-4 text-2xl font-bold tracking-tight text-slate-900 dark:text-white text-center"
+                title={settings.nombreEmpresa}
+              >
+                {settings.nombreEmpresa}
               </h1>
 
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Enter credentials to access system console
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 text-center">
+                Iniciar sesión en el panel administrativo
               </p>
             </div>
 
@@ -110,7 +115,7 @@ export default function LoginPage({
                 type="submit"
                 className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500 active:scale-[0.98] dark:bg-cyan-500 dark:text-slate-900 dark:hover:bg-cyan-400"
               >
-                Access System
+                Ingresar al sistema
               </button>
 
               {success && (

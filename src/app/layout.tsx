@@ -1,10 +1,16 @@
 import "./globals.css";
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { getGeneralSettings } from "@/services/general-settings.service";
 
-export const metadata = {
-  title: "wish.net-TV-core",
-  description: "Core administrativo IPTV",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getGeneralSettings();
+
+  return {
+    title: settings.nombreEmpresa,
+    description: "Core administrativo IPTV",
+  };
+}
 
 const themeScript = `
 (() => {

@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { DashboardSidebarContent } from "@/components/dashboard/DashboardSidebar";
 
-export default function DashboardMobileSidebar() {
+export default function DashboardMobileSidebar({
+  appName,
+}: {
+  appName: string;
+}) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -44,7 +48,6 @@ export default function DashboardMobileSidebar() {
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Drawer mobile/tablet solamente */}
       <div
         className={[
           "fixed inset-0 z-[70] lg:hidden transition",
@@ -80,7 +83,10 @@ export default function DashboardMobileSidebar() {
             </button>
           </div>
 
-          <DashboardSidebarContent onNavigate={() => setOpen(false)} />
+          <DashboardSidebarContent
+            appName={appName}
+            onNavigate={() => setOpen(false)}
+          />
         </aside>
       </div>
     </>

@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DashboardTopbar from "@/components/dashboard/DashboardTopbar";
+import { getGeneralSettings } from "@/services/general-settings.service";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: ReactNode;
 }) {
+  const settings = await getGeneralSettings();
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
       <div className="pointer-events-none fixed inset-0 opacity-[0.18] dark:opacity-[0.12]">
@@ -19,15 +22,13 @@ export default function DashboardLayout({
       </div>
 
       <div className="relative z-10 flex min-h-screen">
-        <DashboardSidebar />
+        <DashboardSidebar appName={settings.nombreEmpresa} />
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <DashboardTopbar />
+          <DashboardTopbar appName={settings.nombreEmpresa} />
 
           <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8">
-            <div className="mx-auto w-full max-w-[1600px]">
-              {children}
-            </div>
+            <div className="mx-auto w-full max-w-[1600px]">{children}</div>
           </main>
         </div>
       </div>

@@ -24,10 +24,7 @@ export type AuthTokenPayload = {
 
 export function verifyAuthToken(token: string) {
   try {
-    // 🔥 AGREGAR ACA
-    console.log("[JWT SECRET VERIFY]", process.env.JWT_SECRET);
-
-    return jwt.verify(token, process.env.JWT_SECRET!);
+    return jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
   } catch (error) {
     console.error("[JWT VERIFY ERROR]", error);
     return null;
