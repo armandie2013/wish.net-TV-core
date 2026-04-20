@@ -6,6 +6,7 @@ import {
   updateStreamingNode,
   toggleStreamingNodeStatus,
 } from "@/services/streaming.service";
+import { refreshStreamingNodeHealthById } from "@/services/streaming-node-health.service";
 import {
   createStreamingNodeSchema,
   updateStreamingNodeSchema,
@@ -70,12 +71,57 @@ function handleGuardError(request: Request, error: unknown) {
   );
 }
 
+function buildStreamingRawDataFromForm(formData: FormData) {
+  const habilitadoRaw = String(formData.get("habilitado") ?? "false");
+
+  return {
+    nombre: String(formData.get("nombre") ?? ""),
+    tipo: String(formData.get("tipo") ?? ""),
+    urlBase: String(formData.get("urlBase") ?? ""),
+    host: String(formData.get("host") ?? ""),
+    puerto: String(formData.get("puerto") ?? ""),
+    prioridad: String(formData.get("prioridad") ?? ""),
+    estado: String(formData.get("estado") ?? ""),
+    habilitado:
+      habilitadoRaw === "true" ||
+      habilitadoRaw === "on" ||
+      habilitadoRaw === "1",
+    healthCheckPath: String(formData.get("healthCheckPath") ?? ""),
+    healthTimeoutMs: String(formData.get("healthTimeoutMs") ?? ""),
+    observaciones: String(formData.get("observaciones") ?? ""),
+  };
+}
+
+function getBackTarget(request: Request, id: string, success: string) {
+  const referer = request.headers.get("referer") || "";
+
+  if (referer.includes(`/configuracion/streaming/${id}/edit`)) {
+    return `/configuracion/streaming/${id}/edit?success=${encodeURIComponent(
+      success
+    )}`;
+  }
+
+  return `/configuracion/streaming?success=${encodeURIComponent(success)}`;
+}
+
+function getBackErrorTarget(request: Request, id: string, error: string) {
+  const referer = request.headers.get("referer") || "";
+
+  if (referer.includes(`/configuracion/streaming/${id}/edit`)) {
+    return `/configuracion/streaming/${id}/edit?error=${encodeURIComponent(
+      error
+    )}`;
+  }
+
+  return `/configuracion/streaming?error=${encodeURIComponent(error)}`;
+}
+
 export async function getStreamingNodesController(request: Request) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
@@ -92,39 +138,29 @@ export async function getStreamingNodesController(request: Request) {
 
 export async function createStreamingNodeController(request: Request) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
     const contentType = request.headers.get("content-type") || "";
-
     let rawData: Record<string, unknown> = {};
 
     if (contentType.includes("application/json")) {
       rawData = await request.json();
     } else {
       const formData = await request.formData();
-
-      rawData = {
-        nombre: formData.get("nombre"),
-        tipo: formData.get("tipo"),
-        urlBase: formData.get("urlBase"),
-        host: formData.get("host"),
-        puerto: formData.get("puerto"),
-        localidad: formData.get("localidad"),
-        prioridad: formData.get("prioridad"),
-        estado: formData.get("estado"),
-        observaciones: formData.get("observaciones"),
-      };
+      rawData = buildStreamingRawDataFromForm(formData);
     }
 
     const parsed = createStreamingNodeSchema.safeParse(rawData);
 
     if (!parsed.success) {
-      if (contentType.includes("application/json")) {
+      console.log("[STREAMING CREATE] validation error:", parsed.error.flatten());
+
+      if (isJsonRequest(request)) {
         return NextResponse.json(
           {
             ok: false,
@@ -157,7 +193,7 @@ export async function createStreamingNodeController(request: Request) {
       targetName: node.nombre,
     });
 
-    if (contentType.includes("application/json")) {
+    if (isJsonRequest(request)) {
       return NextResponse.json(
         { ok: true, message: "Servidor creado correctamente", node },
         { status: 201 }
@@ -175,7 +211,7 @@ export async function createStreamingNodeController(request: Request) {
     const message =
       error instanceof Error ? error.message : "Error al crear servidor";
 
-    if ((request.headers.get("content-type") || "").includes("application/json")) {
+    if (isJsonRequest(request)) {
       return NextResponse.json({ ok: false, message }, { status: 500 });
     }
 
@@ -194,10 +230,10 @@ export async function getStreamingNodeByIdController(
   { params }: { params: { id: string } }
 ) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
@@ -217,30 +253,37 @@ export async function updateStreamingNodeController(
   { params }: { params: { id: string } }
 ) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
-    const formData = await request.formData();
+    const contentType = request.headers.get("content-type") || "";
+    let rawData: Record<string, unknown> = {};
 
-    const rawData = {
-      nombre: formData.get("nombre"),
-      tipo: formData.get("tipo"),
-      urlBase: formData.get("urlBase"),
-      host: formData.get("host"),
-      puerto: formData.get("puerto"),
-      localidad: formData.get("localidad"),
-      prioridad: formData.get("prioridad"),
-      estado: formData.get("estado"),
-      observaciones: formData.get("observaciones"),
-    };
+    if (contentType.includes("application/json")) {
+      rawData = await request.json();
+    } else {
+      const formData = await request.formData();
+      rawData = buildStreamingRawDataFromForm(formData);
+    }
 
     const parsed = updateStreamingNodeSchema.safeParse(rawData);
 
     if (!parsed.success) {
+      if (isJsonRequest(request)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Datos inválidos",
+            errors: parsed.error.flatten(),
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.redirect(
         buildUrlFromRequest(
           request,
@@ -250,8 +293,8 @@ export async function updateStreamingNodeController(
       );
     }
 
+    const node = await updateStreamingNode(params.id, parsed.data);
     const currentUser = await requireAdminFromRequest(request);
-    const updatedNode = await updateStreamingNode(params.id, parsed.data);
 
     await createSystemLog({
       action: "STREAMING_NODE_UPDATE",
@@ -259,9 +302,16 @@ export async function updateStreamingNodeController(
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
-      targetId: updatedNode._id,
-      targetName: updatedNode.nombre,
+      targetId: node._id,
+      targetName: node.nombre,
     });
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json(
+        { ok: true, message: "Servidor actualizado correctamente", node },
+        { status: 200 }
+      );
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
@@ -273,6 +323,10 @@ export async function updateStreamingNodeController(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error al actualizar servidor";
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json({ ok: false, message }, { status: 500 });
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
@@ -291,41 +345,102 @@ export async function toggleStreamingNodeStatusController(
   { params }: { params: { id: string } }
 ) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
+    const node = await toggleStreamingNodeStatus(params.id);
     const currentUser = await requireAdminFromRequest(request);
-    const updatedNode = await toggleStreamingNodeStatus(params.id);
 
     await createSystemLog({
-      action: "STREAMING_NODE_STATUS_UPDATE",
-      message: `Se cambió el estado del servidor a ${updatedNode.estado}`,
+      action: "STREAMING_NODE_TOGGLE_STATUS",
+      message: "Se cambió el estado de un servidor de streaming",
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
-      targetId: updatedNode._id,
-      targetName: updatedNode.nombre,
+      targetId: node._id,
+      targetName: node.nombre,
     });
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json(
+        { ok: true, message: "Estado actualizado correctamente", node },
+        { status: 200 }
+      );
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
         request,
-        "/configuracion/streaming?success=status-updated"
+        getBackTarget(request, params.id, "status-updated")
       ),
       303
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Error al cambiar el estado";
+      error instanceof Error ? error.message : "Error al cambiar estado";
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json({ ok: false, message }, { status: 500 });
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
         request,
-        `/configuracion/streaming?error=${encodeURIComponent(message)}`
+        getBackErrorTarget(request, params.id, message)
+      ),
+      303
+    );
+  }
+}
+
+export async function refreshStreamingNodeHealthController(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
+    );
+    const guardResponse = handleGuardError(request, guardResult);
+
+    if (guardResponse) return guardResponse;
+
+    const node = await refreshStreamingNodeHealthById(params.id);
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json(
+        {
+          ok: true,
+          message: "Health check actualizado correctamente",
+          node,
+        },
+        { status: 200 }
+      );
+    }
+
+    return NextResponse.redirect(
+      buildUrlFromRequest(
+        request,
+        getBackTarget(request, params.id, "health-updated")
+      ),
+      303
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al verificar el nodo";
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json({ ok: false, message }, { status: 500 });
+    }
+
+    return NextResponse.redirect(
+      buildUrlFromRequest(
+        request,
+        getBackErrorTarget(request, params.id, message)
       ),
       303
     );

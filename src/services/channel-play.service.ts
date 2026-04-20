@@ -5,6 +5,10 @@ import User from "@/models/User";
 import "@/models/Plan";
 import "@/models/LocationNode";
 import "@/models/StreamingNode";
+import {
+  getFreshStreamingNodeState,
+  getHealthyOriginNode,
+} from "@/services/streaming-node-health.service";
 
 function joinUrl(base: string, path: string) {
   const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
@@ -84,6 +88,76 @@ function buildAllowedGridFromPlan(plan: any) {
     .filter(Boolean);
 }
 
+function buildNodePayload(node: any) {
+  if (!node) return null;
+
+  return {
+    id: String(node._id),
+    nombre: node.nombre,
+    codigo: node.codigo,
+    tipo: node.tipo,
+    urlBase: node.urlBase,
+    healthStatus: node.healthStatus || "unknown",
+    lastCheckAt: node.lastCheckAt || null,
+    lastSeenAt: node.lastSeenAt || null,
+  };
+}
+
+async function resolvePlaybackNode(location: any) {
+  const mainNode = location?.streamingNodeId || null;
+  const fallbackNode = location?.fallbackStreamingNodeId || null;
+
+  const freshMainNode = await getFreshStreamingNodeState(mainNode, 30000);
+
+  if (
+    freshMainNode &&
+    freshMainNode.estado === "activo" &&
+    freshMainNode.habilitado !== false &&
+    freshMainNode.healthStatus === "online"
+  ) {
+    return {
+      node: freshMainNode,
+      strategy:
+        freshMainNode.tipo === "edge" ? "edge-main" : "origin-main",
+      fallbackUsed: false,
+    };
+  }
+
+  const freshFallbackNode = await getFreshStreamingNodeState(fallbackNode, 30000);
+
+  if (
+    freshFallbackNode &&
+    freshFallbackNode.estado === "activo" &&
+    freshFallbackNode.habilitado !== false &&
+    freshFallbackNode.healthStatus === "online"
+  ) {
+    return {
+      node: freshFallbackNode,
+      strategy:
+        freshFallbackNode.tipo === "edge"
+          ? "edge-fallback"
+          : "origin-fallback",
+      fallbackUsed: true,
+    };
+  }
+
+  const healthyOrigin = await getHealthyOriginNode(30000);
+
+  if (healthyOrigin) {
+    return {
+      node: healthyOrigin,
+      strategy: "origin-global-fallback",
+      fallbackUsed: true,
+    };
+  }
+
+  return {
+    node: null,
+    strategy: "direct",
+    fallbackUsed: false,
+  };
+}
+
 export async function resolveChannelStream(userId: string, channelId: string) {
   await connectDB();
 
@@ -149,20 +223,17 @@ export async function resolveChannelStream(userId: string, channelId: string) {
   }
 
   const normalizedChannel = normalizeChannelDocument(channel);
-
   const location = (user as any).localidadId || null;
-  const mainNode = location?.streamingNodeId || null;
-  const fallbackNode = location?.fallbackStreamingNodeId || null;
-
   const channelPath = `stream/${String((channel as any)._id)}`;
+  const playbackNode = await resolvePlaybackNode(location);
 
-  if (mainNode && mainNode.estado === "activo" && mainNode.urlBase) {
+  if (playbackNode.node && playbackNode.node.urlBase) {
     return {
-      strategy: "node-main",
+      strategy: playbackNode.strategy,
       user: {
         id: String((user as any)._id),
         nombre: (user as any).nombre,
-        localidad: location?.nombre || (user as any).localidad || "principal",
+        localidad: location?.nombre || (user as any).localidad || "",
       },
       location: location
         ? {
@@ -171,12 +242,7 @@ export async function resolveChannelStream(userId: string, channelId: string) {
             codigo: location.codigo,
           }
         : null,
-      node: {
-        id: String(mainNode._id),
-        nombre: mainNode.nombre,
-        tipo: mainNode.tipo,
-        urlBase: mainNode.urlBase,
-      },
+      node: buildNodePayload(playbackNode.node),
       channel: {
         id: String(normalizedChannel?._id || (channel as any)._id),
         name: gridItem.name || normalizedChannel?.nombre || (channel as any).nombre,
@@ -192,50 +258,8 @@ export async function resolveChannelStream(userId: string, channelId: string) {
         visibleName: gridItem.name,
         sourceName: gridItem.sourceName || normalizedChannel?.sourceName || "",
       },
-      streamUrl: joinUrl(mainNode.urlBase, channelPath),
-      fallbackUsed: false,
-      directSourceUrl: normalizedChannel?.urlOrigen || (channel as any).urlOrigen,
-    };
-  }
-
-  if (fallbackNode && fallbackNode.estado === "activo" && fallbackNode.urlBase) {
-    return {
-      strategy: "node-fallback",
-      user: {
-        id: String((user as any)._id),
-        nombre: (user as any).nombre,
-        localidad: location?.nombre || (user as any).localidad || "principal",
-      },
-      location: location
-        ? {
-            id: String(location._id),
-            nombre: location.nombre,
-            codigo: location.codigo,
-          }
-        : null,
-      node: {
-        id: String(fallbackNode._id),
-        nombre: fallbackNode.nombre,
-        tipo: fallbackNode.tipo,
-        urlBase: fallbackNode.urlBase,
-      },
-      channel: {
-        id: String(normalizedChannel?._id || (channel as any)._id),
-        name: gridItem.name || normalizedChannel?.nombre || (channel as any).nombre,
-        logo: gridItem.logo || normalizedChannel?.logo || "",
-        category:
-          gridItem.category ||
-          normalizedChannel?.categoria ||
-          (channel as any).categoria ||
-          "General",
-        tvgId: normalizedChannel?.tvgId || (channel as any).tvgId || "",
-        numero: gridItem.numero,
-        orden: gridItem.orden,
-        visibleName: gridItem.name,
-        sourceName: gridItem.sourceName || normalizedChannel?.sourceName || "",
-      },
-      streamUrl: joinUrl(fallbackNode.urlBase, channelPath),
-      fallbackUsed: true,
+      streamUrl: joinUrl(playbackNode.node.urlBase, channelPath),
+      fallbackUsed: playbackNode.fallbackUsed,
       directSourceUrl: normalizedChannel?.urlOrigen || (channel as any).urlOrigen,
     };
   }
@@ -245,7 +269,7 @@ export async function resolveChannelStream(userId: string, channelId: string) {
     user: {
       id: String((user as any)._id),
       nombre: (user as any).nombre,
-      localidad: location?.nombre || (user as any).localidad || "principal",
+      localidad: location?.nombre || (user as any).localidad || "",
     },
     location: location
       ? {

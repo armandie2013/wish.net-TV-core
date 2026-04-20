@@ -140,8 +140,8 @@ export async function changeOwnPasswordController(request: Request) {
     const formData = await request.formData();
 
     const rawData = {
-      password: formData.get("password"),
-      confirmPassword: formData.get("confirmPassword"),
+      password: String(formData.get("password") ?? ""),
+      confirmPassword: String(formData.get("confirmPassword") ?? ""),
     };
 
     const parsed = updateUserPasswordSchema.safeParse(rawData);

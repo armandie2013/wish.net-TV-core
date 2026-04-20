@@ -497,7 +497,7 @@ export async function appChangePasswordController(request: Request) {
       );
     }
 
-    const updatedUser = await updateUserPassword(payload.sub, parsed.data.password);
+    const updatedUser = await updateUserPassword(payload.sub, parsed.data);
 
     await createSystemLog({
       action: "AUTH_CHANGE_PASSWORD_APP",

@@ -12,6 +12,7 @@ const locationNodeSchema = new Schema(
       required: true,
       trim: true,
       uppercase: true,
+      unique: true,
     },
     descripcion: {
       type: String,
@@ -39,6 +40,10 @@ const locationNodeSchema = new Schema(
     timestamps: true,
   }
 );
+
+locationNodeSchema.index({ codigo: 1 }, { unique: true });
+locationNodeSchema.index({ streamingNodeId: 1 });
+locationNodeSchema.index({ fallbackStreamingNodeId: 1 });
 
 const LocationNode =
   models.LocationNode || model("LocationNode", locationNodeSchema);

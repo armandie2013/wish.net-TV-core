@@ -7,57 +7,89 @@ import type {
   UpdateLocationInput,
 } from "@/validations/location.validation";
 
+function slugifyName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-")
+    .toUpperCase();
+}
+
+function buildLocationCode(nombre: string) {
+  return slugifyName(nombre || "");
+}
+
+function mapNode(node: any) {
+  if (!node) return null;
+
+  return {
+    _id: String(node._id),
+    nombre: node.nombre,
+    codigo: node.codigo,
+    tipo: node.tipo,
+    urlBase: node.urlBase,
+    estado: node.estado,
+    habilitado: node.habilitado,
+    healthStatus: node.healthStatus,
+    prioridad: node.prioridad,
+  };
+}
+
+function mapLocation(location: any) {
+  return {
+    _id: String(location._id),
+    nombre: location.nombre,
+    codigo: location.codigo,
+    descripcion: location.descripcion || "",
+    estado: location.estado,
+    streamingNodeId: mapNode(location.streamingNodeId),
+    fallbackStreamingNodeId: mapNode(location.fallbackStreamingNodeId),
+    createdAt: location.createdAt,
+    updatedAt: location.updatedAt,
+  };
+}
+
 export async function getAllLocations() {
   await connectDB();
 
   const locations = await LocationNode.find({})
-    .populate("streamingNodeId", "nombre tipo urlBase estado")
-    .populate("fallbackStreamingNodeId", "nombre tipo urlBase estado")
+    .populate(
+      "streamingNodeId",
+      "nombre codigo tipo urlBase estado habilitado healthStatus prioridad"
+    )
+    .populate(
+      "fallbackStreamingNodeId",
+      "nombre codigo tipo urlBase estado habilitado healthStatus prioridad"
+    )
     .sort({ nombre: 1 })
     .lean();
 
-  return locations.map((location: any) => ({
-    ...location,
-    _id: String(location._id),
-    streamingNodeId: location.streamingNodeId
-      ? {
-          _id: String(location.streamingNodeId._id),
-          nombre: location.streamingNodeId.nombre,
-          tipo: location.streamingNodeId.tipo,
-          urlBase: location.streamingNodeId.urlBase,
-          estado: location.streamingNodeId.estado,
-        }
-      : null,
-    fallbackStreamingNodeId: location.fallbackStreamingNodeId
-      ? {
-          _id: String(location.fallbackStreamingNodeId._id),
-          nombre: location.fallbackStreamingNodeId.nombre,
-          tipo: location.fallbackStreamingNodeId.tipo,
-          urlBase: location.fallbackStreamingNodeId.urlBase,
-          estado: location.fallbackStreamingNodeId.estado,
-        }
-      : null,
-  }));
+  return locations.map(mapLocation);
 }
 
 export async function createLocation(data: CreateLocationInput) {
   await connectDB();
 
-  const existingName = await LocationNode.findOne({ nombre: data.nombre });
+  const nombre = data.nombre.trim();
+  const codigo = buildLocationCode(nombre);
+
+  const existingName = await LocationNode.findOne({ nombre });
   if (existingName) {
     throw new Error("Ya existe una localidad con ese nombre");
   }
 
-  const existingCode = await LocationNode.findOne({
-    codigo: data.codigo.toUpperCase(),
-  });
+  const existingCode = await LocationNode.findOne({ codigo });
   if (existingCode) {
-    throw new Error("Ya existe una localidad con ese código");
+    throw new Error(
+      "Ya existe una localidad con el código generado automáticamente para ese nombre"
+    );
   }
 
   const location = await LocationNode.create({
-    nombre: data.nombre,
-    codigo: data.codigo.toUpperCase(),
+    nombre,
+    codigo,
     descripcion: data.descripcion || "",
     streamingNodeId: data.streamingNodeId || null,
     fallbackStreamingNodeId: data.fallbackStreamingNodeId || null,
@@ -65,32 +97,17 @@ export async function createLocation(data: CreateLocationInput) {
   });
 
   const populated = await LocationNode.findById(location._id)
-    .populate("streamingNodeId", "nombre tipo urlBase estado")
-    .populate("fallbackStreamingNodeId", "nombre tipo urlBase estado")
+    .populate(
+      "streamingNodeId",
+      "nombre codigo tipo urlBase estado habilitado healthStatus prioridad"
+    )
+    .populate(
+      "fallbackStreamingNodeId",
+      "nombre codigo tipo urlBase estado habilitado healthStatus prioridad"
+    )
     .lean();
 
-  return {
-    ...(populated as any),
-    _id: String((populated as any)._id),
-    streamingNodeId: (populated as any).streamingNodeId
-      ? {
-          _id: String((populated as any).streamingNodeId._id),
-          nombre: (populated as any).streamingNodeId.nombre,
-          tipo: (populated as any).streamingNodeId.tipo,
-          urlBase: (populated as any).streamingNodeId.urlBase,
-          estado: (populated as any).streamingNodeId.estado,
-        }
-      : null,
-    fallbackStreamingNodeId: (populated as any).fallbackStreamingNodeId
-      ? {
-          _id: String((populated as any).fallbackStreamingNodeId._id),
-          nombre: (populated as any).fallbackStreamingNodeId.nombre,
-          tipo: (populated as any).fallbackStreamingNodeId.tipo,
-          urlBase: (populated as any).fallbackStreamingNodeId.urlBase,
-          estado: (populated as any).fallbackStreamingNodeId.estado,
-        }
-      : null,
-  };
+  return mapLocation(populated);
 }
 
 export async function getLocationById(id: string) {
@@ -101,50 +118,35 @@ export async function getLocationById(id: string) {
   }
 
   const location = await LocationNode.findById(id)
-    .populate("streamingNodeId", "nombre tipo urlBase estado")
-    .populate("fallbackStreamingNodeId", "nombre tipo urlBase estado")
+    .populate(
+      "streamingNodeId",
+      "nombre codigo tipo urlBase estado habilitado healthStatus prioridad"
+    )
+    .populate(
+      "fallbackStreamingNodeId",
+      "nombre codigo tipo urlBase estado habilitado healthStatus prioridad"
+    )
     .lean();
 
   if (!location) {
     throw new Error("Localidad no encontrada");
   }
 
-  return {
-    ...(location as any),
-    _id: String((location as any)._id),
-    streamingNodeId: (location as any).streamingNodeId
-      ? {
-          _id: String((location as any).streamingNodeId._id),
-          nombre: (location as any).streamingNodeId.nombre,
-          tipo: (location as any).streamingNodeId.tipo,
-          urlBase: (location as any).streamingNodeId.urlBase,
-          estado: (location as any).streamingNodeId.estado,
-        }
-      : null,
-    fallbackStreamingNodeId: (location as any).fallbackStreamingNodeId
-      ? {
-          _id: String((location as any).fallbackStreamingNodeId._id),
-          nombre: (location as any).fallbackStreamingNodeId.nombre,
-          tipo: (location as any).fallbackStreamingNodeId.tipo,
-          urlBase: (location as any).fallbackStreamingNodeId.urlBase,
-          estado: (location as any).fallbackStreamingNodeId.estado,
-        }
-      : null,
-  };
+  return mapLocation(location);
 }
 
-export async function updateLocation(
-  id: string,
-  data: UpdateLocationInput
-) {
+export async function updateLocation(id: string, data: UpdateLocationInput) {
   await connectDB();
 
   if (!Types.ObjectId.isValid(id)) {
     throw new Error("ID de localidad inválido");
   }
 
+  const nombre = data.nombre.trim();
+  const codigo = buildLocationCode(nombre);
+
   const existingName = await LocationNode.findOne({
-    nombre: data.nombre,
+    nombre,
     _id: { $ne: id },
   });
   if (existingName) {
@@ -152,18 +154,20 @@ export async function updateLocation(
   }
 
   const existingCode = await LocationNode.findOne({
-    codigo: data.codigo.toUpperCase(),
+    codigo,
     _id: { $ne: id },
   });
   if (existingCode) {
-    throw new Error("Ya existe otra localidad con ese código");
+    throw new Error(
+      "Ya existe otra localidad con el código generado automáticamente para ese nombre"
+    );
   }
 
   const location = await LocationNode.findByIdAndUpdate(
     id,
     {
-      nombre: data.nombre,
-      codigo: data.codigo.toUpperCase(),
+      nombre,
+      codigo,
       descripcion: data.descripcion || "",
       streamingNodeId: data.streamingNodeId || null,
       fallbackStreamingNodeId: data.fallbackStreamingNodeId || null,
@@ -171,36 +175,21 @@ export async function updateLocation(
     },
     { new: true, runValidators: true }
   )
-    .populate("streamingNodeId", "nombre tipo urlBase estado")
-    .populate("fallbackStreamingNodeId", "nombre tipo urlBase estado")
+    .populate(
+      "streamingNodeId",
+      "nombre codigo tipo urlBase estado habilitado healthStatus prioridad"
+    )
+    .populate(
+      "fallbackStreamingNodeId",
+      "nombre codigo tipo urlBase estado habilitado healthStatus prioridad"
+    )
     .lean();
 
   if (!location) {
     throw new Error("Localidad no encontrada");
   }
 
-  return {
-    ...(location as any),
-    _id: String((location as any)._id),
-    streamingNodeId: (location as any).streamingNodeId
-      ? {
-          _id: String((location as any).streamingNodeId._id),
-          nombre: (location as any).streamingNodeId.nombre,
-          tipo: (location as any).streamingNodeId.tipo,
-          urlBase: (location as any).streamingNodeId.urlBase,
-          estado: (location as any).streamingNodeId.estado,
-        }
-      : null,
-    fallbackStreamingNodeId: (location as any).fallbackStreamingNodeId
-      ? {
-          _id: String((location as any).fallbackStreamingNodeId._id),
-          nombre: (location as any).fallbackStreamingNodeId.nombre,
-          tipo: (location as any).fallbackStreamingNodeId.tipo,
-          urlBase: (location as any).fallbackStreamingNodeId.urlBase,
-          estado: (location as any).fallbackStreamingNodeId.estado,
-        }
-      : null,
-  };
+  return mapLocation(location);
 }
 
 export async function toggleLocationStatus(id: string) {

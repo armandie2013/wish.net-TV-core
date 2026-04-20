@@ -156,7 +156,7 @@ export default async function NewStreamingNodePage({
 
   const error =
     searchParams?.error === "datos-invalidos"
-      ? "Revisá los datos ingresados"
+      ? "Revisá los datos ingresados."
       : searchParams?.error
       ? decodeURIComponent(searchParams.error)
       : "";
@@ -169,10 +169,11 @@ export default async function NewStreamingNodePage({
             Configuración
           </p>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
-            Nuevo servidor de streaming
+            Nuevo nodo de streaming
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Registrá un origin o edge para la plataforma.
+            Registrá un origin o edge con su endpoint de health. El código se
+            genera automáticamente a partir del tipo y el nombre.
           </p>
         </div>
 
@@ -182,7 +183,14 @@ export default async function NewStreamingNodePage({
           className="space-y-6 p-6"
         >
           <div className="grid gap-5 md:grid-cols-2">
-            <Field label="Nombre" name="nombre" required />
+            <div className="md:col-span-2">
+              <Field
+                label="Nombre"
+                name="nombre"
+                required
+                placeholder="Ej: Origin Central o Edge Ancasti"
+              />
+            </div>
 
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -196,35 +204,11 @@ export default async function NewStreamingNodePage({
                 <option value="origin">Origin</option>
                 <option value="edge">Edge</option>
               </select>
+              <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                El código se generará automáticamente, por ejemplo:
+                <span className="ml-1 font-semibold">ORIGIN-CENTRAL</span>
+              </p>
             </div>
-
-            <div className="md:col-span-2">
-              <Field label="URL base" name="urlBase" required />
-            </div>
-
-            <Field label="Host" name="host" />
-            <Field
-              label="Puerto"
-              name="puerto"
-              type="number"
-              defaultValue={80}
-              min={1}
-              required
-            />
-            <Field
-              label="Localidad"
-              name="localidad"
-              defaultValue="general"
-              required
-            />
-            <Field
-              label="Prioridad"
-              name="prioridad"
-              type="number"
-              defaultValue={1}
-              min={1}
-              required
-            />
 
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -241,12 +225,77 @@ export default async function NewStreamingNodePage({
             </div>
 
             <div className="md:col-span-2">
+              <Field
+                label="URL base"
+                name="urlBase"
+                required
+                placeholder="http://192.168.10.30:4001"
+              />
+            </div>
+
+            <Field
+              label="Host"
+              name="host"
+              placeholder="192.168.10.30"
+            />
+
+            <Field
+              label="Puerto"
+              name="puerto"
+              type="number"
+              defaultValue={4001}
+              min={1}
+              required
+            />
+
+            <Field
+              label="Prioridad"
+              name="prioridad"
+              type="number"
+              defaultValue={1}
+              min={1}
+              required
+            />
+
+            <Field
+              label="Ruta health"
+              name="healthCheckPath"
+              defaultValue="/health"
+              required
+            />
+
+            <Field
+              label="Timeout health (ms)"
+              name="healthTimeoutMs"
+              type="number"
+              defaultValue={2500}
+              min={500}
+              required
+            />
+
+            <div className="md:col-span-2">
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
+                <input
+                  type="checkbox"
+                  name="habilitado"
+                  value="true"
+                  defaultChecked
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-cyan-400 dark:focus:ring-cyan-500"
+                />
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Habilitado para ser usado en la resolución de playback
+                </span>
+              </label>
+            </div>
+
+            <div className="md:col-span-2">
               <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Observaciones
               </label>
               <textarea
                 name="observaciones"
                 rows={4}
+                placeholder="Notas internas del nodo"
                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/80 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
               />
             </div>
@@ -263,12 +312,12 @@ export default async function NewStreamingNodePage({
               type="submit"
               className="inline-flex items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-semibold text-blue-800 transition hover:bg-blue-100 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-400 dark:hover:bg-cyan-500/20"
             >
-              Guardar servidor
+              Guardar nodo
             </button>
 
             <a
               href="/configuracion/streaming"
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-slate-200 px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
             >
               Volver al listado
             </a>
@@ -286,6 +335,7 @@ function Field({
   required,
   defaultValue,
   min,
+  placeholder,
 }: {
   label: string;
   name: string;
@@ -293,6 +343,7 @@ function Field({
   required?: boolean;
   defaultValue?: string | number;
   min?: number;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -304,6 +355,7 @@ function Field({
         name={name}
         defaultValue={defaultValue}
         min={min}
+        placeholder={placeholder}
         className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/80 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
         required={required}
       />

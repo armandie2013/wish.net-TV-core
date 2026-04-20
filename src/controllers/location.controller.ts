@@ -17,6 +17,7 @@ import { createSystemLog } from "@/services/system-log.service";
 function isJsonRequest(request: Request) {
   const contentType = request.headers.get("content-type") || "";
   const accept = request.headers.get("accept") || "";
+
   return (
     contentType.includes("application/json") ||
     accept.includes("application/json")
@@ -69,12 +70,46 @@ function handleGuardError(request: Request, error: unknown) {
   );
 }
 
+function buildLocationRawDataFromForm(formData: FormData) {
+  return {
+    nombre: String(formData.get("nombre") ?? ""),
+    descripcion: String(formData.get("descripcion") ?? ""),
+    streamingNodeId: String(formData.get("streamingNodeId") ?? ""),
+    fallbackStreamingNodeId: String(formData.get("fallbackStreamingNodeId") ?? ""),
+    estado: String(formData.get("estado") ?? ""),
+  };
+}
+
+function getBackTarget(request: Request, id: string, success: string) {
+  const referer = request.headers.get("referer") || "";
+
+  if (referer.includes(`/configuracion/localidades/${id}/edit`)) {
+    return `/configuracion/localidades/${id}/edit?success=${encodeURIComponent(
+      success
+    )}`;
+  }
+
+  return `/configuracion/localidades?success=${encodeURIComponent(success)}`;
+}
+
+function getBackErrorTarget(request: Request, id: string, error: string) {
+  const referer = request.headers.get("referer") || "";
+
+  if (referer.includes(`/configuracion/localidades/${id}/edit`)) {
+    return `/configuracion/localidades/${id}/edit?error=${encodeURIComponent(
+      error
+    )}`;
+  }
+
+  return `/configuracion/localidades?error=${encodeURIComponent(error)}`;
+}
+
 export async function getLocationsController(request: Request) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
@@ -91,10 +126,10 @@ export async function getLocationsController(request: Request) {
 
 export async function createLocationController(request: Request) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
@@ -105,21 +140,15 @@ export async function createLocationController(request: Request) {
       rawData = await request.json();
     } else {
       const formData = await request.formData();
-
-      rawData = {
-        nombre: formData.get("nombre"),
-        codigo: formData.get("codigo"),
-        descripcion: formData.get("descripcion"),
-        streamingNodeId: formData.get("streamingNodeId"),
-        fallbackStreamingNodeId: formData.get("fallbackStreamingNodeId"),
-        estado: formData.get("estado"),
-      };
+      rawData = buildLocationRawDataFromForm(formData);
     }
 
     const parsed = createLocationSchema.safeParse(rawData);
 
     if (!parsed.success) {
-      if (contentType.includes("application/json")) {
+      console.log("[LOCATION CREATE] validation error:", parsed.error.flatten());
+
+      if (isJsonRequest(request)) {
         return NextResponse.json(
           {
             ok: false,
@@ -152,7 +181,7 @@ export async function createLocationController(request: Request) {
       targetName: location.nombre,
     });
 
-    if (contentType.includes("application/json")) {
+    if (isJsonRequest(request)) {
       return NextResponse.json(
         { ok: true, message: "Localidad creada correctamente", location },
         { status: 201 }
@@ -170,7 +199,7 @@ export async function createLocationController(request: Request) {
     const message =
       error instanceof Error ? error.message : "Error al crear localidad";
 
-    if ((request.headers.get("content-type") || "").includes("application/json")) {
+    if (isJsonRequest(request)) {
       return NextResponse.json({ ok: false, message }, { status: 500 });
     }
 
@@ -189,10 +218,10 @@ export async function getLocationByIdController(
   { params }: { params: { id: string } }
 ) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
@@ -212,27 +241,37 @@ export async function updateLocationController(
   { params }: { params: { id: string } }
 ) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
-    const formData = await request.formData();
+    const contentType = request.headers.get("content-type") || "";
+    let rawData: Record<string, unknown> = {};
 
-    const rawData = {
-      nombre: formData.get("nombre"),
-      codigo: formData.get("codigo"),
-      descripcion: formData.get("descripcion"),
-      streamingNodeId: formData.get("streamingNodeId"),
-      fallbackStreamingNodeId: formData.get("fallbackStreamingNodeId"),
-      estado: formData.get("estado"),
-    };
+    if (contentType.includes("application/json")) {
+      rawData = await request.json();
+    } else {
+      const formData = await request.formData();
+      rawData = buildLocationRawDataFromForm(formData);
+    }
 
     const parsed = updateLocationSchema.safeParse(rawData);
 
     if (!parsed.success) {
+      if (isJsonRequest(request)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Datos inválidos",
+            errors: parsed.error.flatten(),
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.redirect(
         buildUrlFromRequest(
           request,
@@ -242,8 +281,8 @@ export async function updateLocationController(
       );
     }
 
+    const location = await updateLocation(params.id, parsed.data);
     const currentUser = await requireAdminFromRequest(request);
-    const updatedLocation = await updateLocation(params.id, parsed.data);
 
     await createSystemLog({
       action: "LOCATION_UPDATE",
@@ -251,9 +290,16 @@ export async function updateLocationController(
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
-      targetId: updatedLocation._id,
-      targetName: updatedLocation.nombre,
+      targetId: location._id,
+      targetName: location.nombre,
     });
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json(
+        { ok: true, message: "Localidad actualizada correctamente", location },
+        { status: 200 }
+      );
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
@@ -265,6 +311,10 @@ export async function updateLocationController(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error al actualizar localidad";
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json({ ok: false, message }, { status: 500 });
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
@@ -283,41 +333,52 @@ export async function toggleLocationStatusController(
   { params }: { params: { id: string } }
 ) {
   try {
-    const guardResponse = handleGuardError(
-      request,
-      await requireAdminFromRequest(request).catch((error) => error)
+    const guardResult = await requireAdminFromRequest(request).catch(
+      (error) => error
     );
+    const guardResponse = handleGuardError(request, guardResult);
 
     if (guardResponse) return guardResponse;
 
+    const location = await toggleLocationStatus(params.id);
     const currentUser = await requireAdminFromRequest(request);
-    const updatedLocation = await toggleLocationStatus(params.id);
 
     await createSystemLog({
-      action: "LOCATION_STATUS_UPDATE",
-      message: `Se cambió el estado de la localidad a ${updatedLocation.estado}`,
+      action: "LOCATION_TOGGLE_STATUS",
+      message: "Se cambió el estado de una localidad",
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
-      targetId: updatedLocation._id,
-      targetName: updatedLocation.nombre,
+      targetId: location._id,
+      targetName: location.nombre,
     });
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json(
+        { ok: true, message: "Estado actualizado correctamente", location },
+        { status: 200 }
+      );
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
         request,
-        "/configuracion/localidades?success=status-updated"
+        getBackTarget(request, params.id, "status-updated")
       ),
       303
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Error al cambiar el estado";
+      error instanceof Error ? error.message : "Error al cambiar estado";
+
+    if (isJsonRequest(request)) {
+      return NextResponse.json({ ok: false, message }, { status: 500 });
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
         request,
-        `/configuracion/localidades?error=${encodeURIComponent(message)}`
+        getBackErrorTarget(request, params.id, message)
       ),
       303
     );

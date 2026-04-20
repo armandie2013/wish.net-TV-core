@@ -57,10 +57,7 @@ function handleGuardError(request: Request, error: unknown) {
   }
 
   if (error.code === "UNAUTHORIZED") {
-    return NextResponse.redirect(
-      buildUrlFromRequest(request, "/login"),
-      303
-    );
+    return NextResponse.redirect(buildUrlFromRequest(request, "/login"), 303);
   }
 
   if (error.code === "PASSWORD_CHANGE_REQUIRED") {
@@ -74,6 +71,19 @@ function handleGuardError(request: Request, error: unknown) {
     buildUrlFromRequest(request, "/dashboard"),
     303
   );
+}
+
+function buildUserRawDataFromForm(formData: FormData) {
+  return {
+    nombre: String(formData.get("nombre") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    rol: String(formData.get("rol") ?? ""),
+    estado: String(formData.get("estado") ?? ""),
+    localidad: String(formData.get("localidad") ?? ""),
+    localidadId: String(formData.get("localidadId") ?? ""),
+    conexionesPermitidas: String(formData.get("conexionesPermitidas") ?? ""),
+    planId: String(formData.get("planId") ?? ""),
+  };
 }
 
 export async function getUsersController(request: Request) {
@@ -129,22 +139,14 @@ export async function createUserController(request: Request) {
       rawData = await request.json();
     } else {
       const formData = await request.formData();
-
-      rawData = {
-        nombre: formData.get("nombre"),
-        email: formData.get("email"),
-        rol: formData.get("rol"),
-        estado: formData.get("estado"),
-        localidad: formData.get("localidad"),
-        localidadId: formData.get("localidadId"),
-        conexionesPermitidas: formData.get("conexionesPermitidas"),
-        planId: formData.get("planId"),
-      };
+      rawData = buildUserRawDataFromForm(formData);
     }
 
     const parsed = createUserSchema.safeParse(rawData);
 
     if (!parsed.success) {
+      console.log("[USER CREATE] validation error:", parsed.error.flatten());
+
       if (contentType.includes("application/json")) {
         return NextResponse.json(
           {
@@ -273,22 +275,33 @@ export async function updateUserController(
       return guardResponse;
     }
 
-    const formData = await request.formData();
+    const contentType = request.headers.get("content-type") || "";
 
-    const rawData = {
-      nombre: formData.get("nombre"),
-      email: formData.get("email"),
-      rol: formData.get("rol"),
-      estado: formData.get("estado"),
-      localidad: formData.get("localidad"),
-      localidadId: formData.get("localidadId"),
-      conexionesPermitidas: formData.get("conexionesPermitidas"),
-      planId: formData.get("planId"),
-    };
+    let rawData: Record<string, unknown> = {};
+
+    if (contentType.includes("application/json")) {
+      rawData = await request.json();
+    } else {
+      const formData = await request.formData();
+      rawData = buildUserRawDataFromForm(formData);
+    }
 
     const parsed = updateUserSchema.safeParse(rawData);
 
     if (!parsed.success) {
+      console.log("[USER UPDATE] validation error:", parsed.error.flatten());
+
+      if (contentType.includes("application/json")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Datos inválidos",
+            errors: parsed.error.flatten(),
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.redirect(
         buildUrlFromRequest(
           request,
@@ -298,27 +311,49 @@ export async function updateUserController(
       );
     }
 
+    const user = await updateUser(params.id, parsed.data);
+
     const currentUser = await requireAdminFromRequest(request);
-    const updatedUser = await updateUser(params.id, parsed.data);
 
     await createSystemLog({
       action: "USER_UPDATE",
-      message: "Se actualizó un usuario",
+      message: `Se actualizó un usuario`,
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
-      targetId: updatedUser._id,
-      targetName: updatedUser.nombre,
-      targetEmail: updatedUser.email,
+      targetId: user._id,
+      targetName: user.nombre,
+      targetEmail: user.email,
     });
 
+    if (contentType.includes("application/json")) {
+      return NextResponse.json(
+        {
+          ok: true,
+          message: "Usuario actualizado correctamente",
+          user,
+        },
+        { status: 200 }
+      );
+    }
+
     return NextResponse.redirect(
-      buildUrlFromRequest(request, "/users?success=user-updated"),
+      buildUrlFromRequest(request, `/users/${params.id}/edit?success=user-updated`),
       303
     );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error al actualizar usuario";
+
+    if ((request.headers.get("content-type") || "").includes("application/json")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message,
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.redirect(
       buildUrlFromRequest(
@@ -344,18 +379,19 @@ export async function toggleUserStatusController(
       return guardResponse;
     }
 
+    const user = await toggleUserStatus(params.id);
+
     const currentUser = await requireAdminFromRequest(request);
-    const updatedUser = await toggleUserStatus(params.id);
 
     await createSystemLog({
-      action: "USER_STATUS_UPDATE",
-      message: `Se cambió el estado de un usuario a ${updatedUser.estado}`,
+      action: "USER_TOGGLE_STATUS",
+      message: `Se cambió el estado de un usuario`,
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
-      targetId: updatedUser._id,
-      targetName: updatedUser.nombre,
-      targetEmail: updatedUser.email,
+      targetId: user._id,
+      targetName: user.nombre,
+      targetEmail: user.email,
     });
 
     return NextResponse.redirect(
@@ -364,7 +400,7 @@ export async function toggleUserStatusController(
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Error al cambiar el estado";
+      error instanceof Error ? error.message : "Error al cambiar estado";
 
     return NextResponse.redirect(
       buildUrlFromRequest(
@@ -390,16 +426,33 @@ export async function updateUserPasswordController(
       return guardResponse;
     }
 
-    const formData = await request.formData();
+    const contentType = request.headers.get("content-type") || "";
+    let rawData: Record<string, unknown> = {};
 
-    const rawData = {
-      password: formData.get("password"),
-      confirmPassword: formData.get("confirmPassword"),
-    };
+    if (contentType.includes("application/json")) {
+      rawData = await request.json();
+    } else {
+      const formData = await request.formData();
+      rawData = {
+        password: String(formData.get("password") ?? ""),
+        confirmPassword: String(formData.get("confirmPassword") ?? ""),
+      };
+    }
 
     const parsed = updateUserPasswordSchema.safeParse(rawData);
 
     if (!parsed.success) {
+      if (contentType.includes("application/json")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Datos inválidos",
+            errors: parsed.error.flatten(),
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.redirect(
         buildUrlFromRequest(
           request,
@@ -409,34 +462,26 @@ export async function updateUserPasswordController(
       );
     }
 
-    const currentUser = await requireAdminFromRequest(request);
-    const updatedUser = await updateUserPassword(params.id, parsed.data);
+    const user = await updateUserPassword(params.id, parsed.data);
 
-    await createSystemLog({
-      action: "USER_PASSWORD_UPDATE",
-      message: "Se actualizó manualmente la contraseña de un usuario",
-      actorId: currentUser._id,
-      actorName: currentUser.nombre,
-      actorEmail: currentUser.email,
-      targetId: updatedUser._id,
-      targetName: updatedUser.nombre,
-      targetEmail: updatedUser.email,
-    });
-
-    return NextResponse.redirect(
-      buildUrlFromRequest(request, "/users?success=password-updated"),
-      303
+    return NextResponse.json(
+      {
+        ok: true,
+        message: "Contraseña actualizada correctamente",
+        user,
+      },
+      { status: 200 }
     );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error al actualizar contraseña";
 
-    return NextResponse.redirect(
-      buildUrlFromRequest(
-        request,
-        `/users/${params.id}/password?error=${encodeURIComponent(message)}`
-      ),
-      303
+    return NextResponse.json(
+      {
+        ok: false,
+        message,
+      },
+      { status: 500 }
     );
   }
 }
@@ -461,7 +506,7 @@ export async function resetUserPasswordController(
 
     await createSystemLog({
       action: "USER_PASSWORD_RESET",
-      message: `Se restableció la contraseña de un usuario`,
+      message: `Se reseteó la contraseña de un usuario`,
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
@@ -481,7 +526,7 @@ export async function resetUserPasswordController(
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Error al restablecer contraseña";
+      error instanceof Error ? error.message : "Error al resetear contraseña";
 
     return NextResponse.redirect(
       buildUrlFromRequest(

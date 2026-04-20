@@ -1,8 +1,5 @@
 import { toggleLocationStatusController } from "@/controllers/location.controller";
 
-export async function POST(
-  request: Request,
-  context: { params: { id: string } }
-) {
-  return toggleLocationStatusController(request, context);
+export async function POST(req: Request, ctx: any) {
+  return toggleLocationStatusController(req, ctx);
 }

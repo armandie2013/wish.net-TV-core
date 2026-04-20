@@ -1,15 +1,56 @@
 import bcrypt from "bcryptjs";
 import { Types } from "mongoose";
 import User from "@/models/User";
+import LocationNode from "@/models/LocationNode";
 import "@/models/Plan";
 import "@/models/LocationNode";
 import { connectDB } from "@/lib/db";
-import { generateTemporaryPassword } from "@/lib/password";
 import type {
   CreateUserInput,
   UpdateUserInput,
   UpdateUserPasswordInput,
 } from "@/validations/user.validation";
+
+function generateTemporaryPassword() {
+  return Math.random().toString(36).slice(-8);
+}
+
+function mapLocation(location: any) {
+  if (!location) return null;
+
+  return {
+    _id: String(location._id),
+    nombre: location.nombre,
+    codigo: location.codigo,
+    estado: location.estado,
+  };
+}
+
+function mapPlan(plan: any) {
+  if (!plan) return null;
+
+  return {
+    _id: String(plan._id),
+    nombre: plan.nombre,
+  };
+}
+
+async function resolveLocalidadNombre(
+  localidadId?: string,
+  localidadTexto?: string
+) {
+  if (localidadId && Types.ObjectId.isValid(localidadId)) {
+    const location = await LocationNode.findById(localidadId)
+      .select("nombre")
+      .lean();
+
+    if (location) {
+      return location.nombre;
+    }
+  }
+
+  return (localidadTexto || "").trim();
+}
 
 export async function getAllUsers() {
   await connectDB();
@@ -26,20 +67,8 @@ export async function getAllUsers() {
   return users.map((user: any) => ({
     ...user,
     _id: String(user._id),
-    planId: user.planId
-      ? {
-          _id: String(user.planId._id),
-          nombre: user.planId.nombre,
-        }
-      : null,
-    localidadId: user.localidadId
-      ? {
-          _id: String(user.localidadId._id),
-          nombre: user.localidadId.nombre,
-          codigo: user.localidadId.codigo,
-          estado: user.localidadId.estado,
-        }
-      : null,
+    planId: mapPlan(user.planId),
+    localidadId: mapLocation(user.localidadId),
   }));
 }
 
@@ -56,6 +85,10 @@ export async function createUser(data: CreateUserInput) {
 
   const temporaryPassword = generateTemporaryPassword();
   const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+  const localidadNombre = await resolveLocalidadNombre(
+    data.localidadId,
+    data.localidad
+  );
 
   const user = await User.create({
     nombre: data.nombre,
@@ -63,7 +96,7 @@ export async function createUser(data: CreateUserInput) {
     password: hashedPassword,
     rol: data.rol,
     estado: data.estado,
-    localidad: data.localidad,
+    localidad: localidadNombre,
     localidadId: data.localidadId || null,
     conexionesPermitidas: data.conexionesPermitidas,
     mustChangePassword: true,
@@ -85,20 +118,8 @@ export async function createUser(data: CreateUserInput) {
       localidad: (populatedUser as any)!.localidad,
       conexionesPermitidas: (populatedUser as any)!.conexionesPermitidas,
       mustChangePassword: (populatedUser as any)!.mustChangePassword,
-      planId: (populatedUser as any)!.planId
-        ? {
-            _id: String((populatedUser as any)!.planId._id),
-            nombre: (populatedUser as any)!.planId.nombre,
-          }
-        : null,
-      localidadId: (populatedUser as any)!.localidadId
-        ? {
-            _id: String((populatedUser as any)!.localidadId._id),
-            nombre: (populatedUser as any)!.localidadId.nombre,
-            codigo: (populatedUser as any)!.localidadId.codigo,
-            estado: (populatedUser as any)!.localidadId.estado,
-          }
-        : null,
+      planId: mapPlan((populatedUser as any)!.planId),
+      localidadId: mapLocation((populatedUser as any)!.localidadId),
     },
     temporaryPassword,
   };
@@ -126,20 +147,8 @@ export async function getUserById(id: string) {
   return {
     ...(user as any),
     _id: String((user as any)._id),
-    planId: (user as any).planId
-      ? {
-          _id: String((user as any).planId._id),
-          nombre: (user as any).planId.nombre,
-        }
-      : null,
-    localidadId: (user as any).localidadId
-      ? {
-          _id: String((user as any).localidadId._id),
-          nombre: (user as any).localidadId.nombre,
-          codigo: (user as any).localidadId.codigo,
-          estado: (user as any).localidadId.estado,
-        }
-      : null,
+    planId: mapPlan((user as any).planId),
+    localidadId: mapLocation((user as any).localidadId),
   };
 }
 
@@ -159,6 +168,11 @@ export async function updateUser(id: string, data: UpdateUserInput) {
     throw new Error("Ya existe otro usuario con ese email");
   }
 
+  const localidadNombre = await resolveLocalidadNombre(
+    data.localidadId,
+    data.localidad
+  );
+
   const user = await User.findByIdAndUpdate(
     id,
     {
@@ -166,7 +180,7 @@ export async function updateUser(id: string, data: UpdateUserInput) {
       email: data.email.toLowerCase(),
       rol: data.rol,
       estado: data.estado,
-      localidad: data.localidad,
+      localidad: localidadNombre,
       localidadId: data.localidadId || null,
       conexionesPermitidas: data.conexionesPermitidas,
       planId: data.planId || null,
@@ -187,20 +201,8 @@ export async function updateUser(id: string, data: UpdateUserInput) {
   return {
     ...(user as any),
     _id: String((user as any)._id),
-    planId: (user as any).planId
-      ? {
-          _id: String((user as any).planId._id),
-          nombre: (user as any).planId.nombre,
-        }
-      : null,
-    localidadId: (user as any).localidadId
-      ? {
-          _id: String((user as any).localidadId._id),
-          nombre: (user as any).localidadId.nombre,
-          codigo: (user as any).localidadId.codigo,
-          estado: (user as any).localidadId.estado,
-        }
-      : null,
+    planId: mapPlan((user as any).planId),
+    localidadId: mapLocation((user as any).localidadId),
   };
 }
 
@@ -231,20 +233,8 @@ export async function toggleUserStatus(id: string) {
     localidad: user.localidad,
     conexionesPermitidas: user.conexionesPermitidas,
     mustChangePassword: user.mustChangePassword,
-    planId: user.planId
-      ? {
-          _id: String((user.planId as any)._id),
-          nombre: (user.planId as any).nombre,
-        }
-      : null,
-    localidadId: user.localidadId
-      ? {
-          _id: String((user.localidadId as any)._id),
-          nombre: (user.localidadId as any).nombre,
-          codigo: (user.localidadId as any).codigo,
-          estado: (user.localidadId as any).estado,
-        }
-      : null,
+    planId: mapPlan(user.planId),
+    localidadId: mapLocation(user.localidadId),
   };
 }
 
@@ -274,6 +264,9 @@ export async function updateUserPassword(
     _id: String(user._id),
     nombre: user.nombre,
     email: user.email,
+    rol: user.rol,
+    estado: user.estado,
+    localidad: user.localidad,
   };
 }
 
