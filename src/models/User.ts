@@ -32,7 +32,7 @@ const userSchema = new Schema(
     },
     localidad: {
       type: String,
-      default: "principal",
+      default: "",
       trim: true,
     },
     localidadId: {
@@ -68,6 +68,10 @@ const userSchema = new Schema(
     timestamps: true,
   }
 );
+
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ localidadId: 1 });
+userSchema.index({ rol: 1, estado: 1 });
 
 const User = models.User || model("User", userSchema);
 

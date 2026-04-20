@@ -1,62 +1,52 @@
 import { z } from "zod";
 
-// 🔹 reutilizable para ObjectId opcional (plan, localidad, etc.)
 const optionalObjectId = z
   .string()
   .trim()
   .optional()
   .or(z.literal(""))
-  .transform((value) => (value ? value : ""));
+  .transform((v) => (v ? v : ""));
 
-// 🔹 CREATE
+const optionalText = z.string().trim().optional().or(z.literal(""));
+
 export const createUserSchema = z.object({
-  nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
+  nombre: z
+    .string()
+    .trim()
+    .min(2, "El nombre debe tener al menos 2 caracteres"),
+
+  email: z
+    .string()
+    .trim()
+    .email("Email inválido"),
+
   rol: z.enum(["admin", "operador", "cliente"]),
   estado: z.enum(["activo", "suspendido"]),
 
-  // 👇 esto lo dejamos como texto (UI)
-  localidad: z.string().min(2, "La localidad es obligatoria"),
-
-  // 👇 NUEVO (relación real con Localidades)
+  localidad: optionalText,
   localidadId: optionalObjectId,
 
   conexionesPermitidas: z.coerce
-    .number()
+    .number({
+      invalid_type_error: "Las conexiones permitidas deben ser un número",
+    })
+    .int("Las conexiones permitidas deben ser enteras")
     .min(1, "Debe ser al menos 1"),
 
   planId: optionalObjectId,
 });
 
-export type CreateUserInput = z.infer<typeof createUserSchema>;
+export const updateUserSchema = createUserSchema;
 
-// 🔹 UPDATE
-export const updateUserSchema = z.object({
-  nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
-  rol: z.enum(["admin", "operador", "cliente"]),
-  estado: z.enum(["activo", "suspendido"]),
-
-  localidad: z.string().min(2, "La localidad es obligatoria"),
-  localidadId: optionalObjectId,
-
-  conexionesPermitidas: z.coerce
-    .number()
-    .min(1, "Debe ser al menos 1"),
-
-  planId: optionalObjectId,
-});
-
-export type UpdateUserInput = z.infer<typeof updateUserSchema>;
-
-// 🔹 PASSWORD
 export const updateUserPasswordSchema = z
   .object({
     password: z
       .string()
+      .trim()
       .min(6, "La contraseña debe tener al menos 6 caracteres"),
     confirmPassword: z
       .string()
+      .trim()
       .min(6, "La confirmación debe tener al menos 6 caracteres"),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -64,6 +54,8 @@ export const updateUserPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+export type CreateUserInput = z.infer<typeof createUserSchema>;
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type UpdateUserPasswordInput = z.infer<
   typeof updateUserPasswordSchema
 >;

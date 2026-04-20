@@ -204,21 +204,19 @@
 import { redirect } from "next/navigation";
 import { requireAdminPageAccess } from "@/lib/auth-guards";
 import { getUserById } from "@/services/user.service";
-import { getAllPlans } from "@/services/plan.service";
 import { getAllLocations } from "@/services/location.service";
+import { getAllPlans } from "@/services/plan.service";
 
 export default async function EditUserPage({
   params,
   searchParams,
 }: {
   params: { id: string };
-  searchParams?: { error?: string };
+  searchParams?: { error?: string; success?: string };
 }) {
   await requireAdminPageAccess();
 
   let user;
-  const plans = await getAllPlans();
-  const locations = await getAllLocations();
 
   try {
     user = await getUserById(params.id);
@@ -226,12 +224,17 @@ export default async function EditUserPage({
     redirect("/users");
   }
 
+  const locations = await getAllLocations();
+  const plans = await getAllPlans();
+
   const error =
     searchParams?.error === "datos-invalidos"
-      ? "Revisá los datos ingresados"
+      ? "Revisá los datos ingresados."
       : searchParams?.error
       ? decodeURIComponent(searchParams.error)
       : "";
+
+  const success = searchParams?.success || "";
 
   return (
     <section className="px-2 sm:px-4">
@@ -241,13 +244,13 @@ export default async function EditUserPage({
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-blue-700 dark:text-cyan-400">
-                  Usuarios
+                  Users
                 </p>
                 <h1 className="mt-1 text-xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
                   Editar usuario
                 </h1>
                 <p className="mt-1 max-w-2xl text-xs text-slate-600 dark:text-slate-400 sm:text-sm">
-                  Modificá los datos de la cuenta seleccionada.
+                  Modificá los datos generales y la localidad asociada.
                 </p>
               </div>
 
@@ -285,46 +288,29 @@ export default async function EditUserPage({
                     required
                   />
 
-                  <Field
-                    label="Localidad"
-                    name="localidad"
-                    defaultValue={user.localidad}
-                    required
-                  />
-
-                  <SelectField
-                    label="Localidad técnica"
-                    name="localidadId"
-                    defaultValue={user.localidadId?._id || ""}
-                  >
-                    <option value="">Sin asociar</option>
-                    {locations
-                      .filter(
-                        (location) =>
-                          location.estado === "activo" ||
-                          location._id === user.localidadId?._id
-                      )
-                      .map((location) => (
-                        <option key={location._id} value={location._id}>
-                          {location.nombre}
-                          {location.codigo ? ` · ${location.codigo}` : ""}
-                        </option>
-                      ))}
-                  </SelectField>
-
                   <SelectField label="Rol" name="rol" defaultValue={user.rol}>
                     <option value="admin">Admin</option>
                     <option value="operador">Operador</option>
                     <option value="cliente">Cliente</option>
                   </SelectField>
 
-                  <SelectField
-                    label="Estado"
-                    name="estado"
-                    defaultValue={user.estado}
-                  >
+                  <SelectField label="Estado" name="estado" defaultValue={user.estado}>
                     <option value="activo">Activo</option>
                     <option value="suspendido">Suspendido</option>
+                  </SelectField>
+
+                  <SelectField
+                    label="Localidad"
+                    name="localidadId"
+                    defaultValue={user.localidadId?._id || ""}
+                  >
+                    <option value="">Sin asociar</option>
+                    {locations.map((location) => (
+                      <option key={location._id} value={location._id}>
+                        {location.nombre}
+                        {location.codigo ? ` · ${location.codigo}` : ""}
+                      </option>
+                    ))}
                   </SelectField>
 
                   <Field
@@ -345,11 +331,10 @@ export default async function EditUserPage({
                       <option value="">Sin plan</option>
                       {plans
                         .filter(
-                          (plan) =>
-                            plan.estado === "activo" ||
-                            plan._id === user.planId?._id
+                          (plan: any) =>
+                            plan.estado === "activo" || plan._id === user.planId?._id
                         )
-                        .map((plan) => (
+                        .map((plan: any) => (
                           <option key={plan._id} value={plan._id}>
                             {plan.nombre}
                           </option>
@@ -358,77 +343,61 @@ export default async function EditUserPage({
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-3 border-t border-slate-300 pt-4 dark:border-slate-800">
-                  <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-800 sm:text-sm dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300">
-                    Revisá rol, estado, plan, localidad técnica y conexiones
-                    antes de guardar los cambios.
+                {success === "user-updated" && (
+                  <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
+                    Usuario actualizado correctamente.
                   </div>
+                )}
 
-                  {error && (
-                    <div className="rounded-2xl border border-red-300 bg-red-100 px-4 py-3 text-xs text-red-700 sm:text-sm dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
-                      {error}
-                    </div>
-                  )}
+                {error && (
+                  <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                    {error}
+                  </div>
+                )}
 
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs text-slate-500 dark:text-slate-500">
-                      Los cambios impactan sobre la cuenta actual del usuario.
-                    </p>
+                <div className="mt-5 border-t border-slate-300 pt-5 dark:border-slate-800">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-400 transition hover:bg-cyan-500/20"
+                    >
+                      Guardar cambios
+                    </button>
 
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="submit"
-                        className="inline-flex items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-5 py-2 text-sm font-semibold text-blue-800 transition hover:bg-blue-100 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-400 dark:hover:bg-cyan-500/20"
-                      >
-                        Guardar cambios
-                      </button>
-                    </div>
+                    <a
+                      href="/users"
+                      className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:bg-slate-800/80"
+                    >
+                      Cancelar
+                    </a>
                   </div>
                 </div>
               </div>
             </form>
 
-            <aside className="hidden w-[400px] min-h-0 xl:flex xl:flex-col xl:gap-4">
-              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-300 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                <p className="pl-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Configuración
-                </p>
+            <aside className="w-full xl:w-[320px]">
+              <div className="rounded-2xl border border-slate-300 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/60">
+                <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700 dark:text-slate-300">
+                  Resolución de servicio
+                </h2>
 
-                <div className="mt-4 flex flex-1 flex-col gap-3">
-                  <InfoCard
-                    title="Rol"
-                    text="Define el nivel de acceso y las pantallas visibles del usuario."
-                  />
-                  <InfoCard
-                    title="Estado"
-                    text="Controla si la cuenta puede ingresar al sistema."
-                  />
-                  <InfoCard
-                    title="Plan"
-                    text="Permite mantener o cambiar el servicio asignado."
-                  />
-                  <InfoCard
-                    title="Localidad técnica"
-                    text="Relaciona al usuario con una localidad real del sistema para resolver nodos de streaming."
-                  />
-                  <InfoCard
-                    title="Conexiones"
-                    text="Limita la cantidad de dispositivos o sesiones permitidas."
-                  />
+                <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                  <p>
+                    La localidad técnica define desde qué nodo se resolverá el
+                    servicio.
+                  </p>
+
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs dark:border-slate-800 dark:bg-slate-950/70">
+                    User → Localidad → Nodo principal → Fallback
+                  </div>
+
+                  <p>
+                    Localidad actual:
+                    <span className="ml-1 font-semibold text-slate-800 dark:text-slate-200">
+                      {user.localidadId?.nombre || "Sin asociar"}
+                    </span>
+                  </p>
                 </div>
-              </div>
-
-              <div className="rounded-2xl border border-emerald-300 bg-emerald-100 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
-                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                  Recomendación
-                </p>
-                <p className="mt-1 text-sm leading-6 text-emerald-700/90 dark:text-emerald-200/80">
-                  Verificá especialmente el{" "}
-                  <span className="font-semibold">plan</span>, el{" "}
-                  <span className="font-semibold">estado</span> y la{" "}
-                  <span className="font-semibold">localidad técnica</span>{" "}
-                  antes de guardar los cambios.
-                </p>
               </div>
             </aside>
           </div>
@@ -438,44 +407,61 @@ export default async function EditUserPage({
   );
 }
 
-function Field({ label, name, type = "text", ...props }: any) {
+function Field({
+  label,
+  name,
+  type = "text",
+  required,
+  defaultValue,
+  min,
+}: {
+  label: string;
+  name: string;
+  type?: string;
+  required?: boolean;
+  defaultValue?: string | number;
+  min?: number;
+}) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+    <div>
+      <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
         {label}
       </label>
       <input
         type={type}
         name={name}
-        {...props}
-        className="h-10 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-cyan-500 dark:focus:ring-cyan-500/10"
+        defaultValue={defaultValue}
+        min={min}
+        required={required}
+        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-500/50 focus:outline-none focus:ring-4 focus:ring-cyan-500/10 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 dark:placeholder:text-slate-500"
       />
     </div>
   );
 }
 
-function SelectField({ label, name, children, ...props }: any) {
+function SelectField({
+  label,
+  name,
+  defaultValue,
+  children,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+    <div>
+      <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
         {label}
       </label>
       <select
         name={name}
-        {...props}
-        className="h-10 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-cyan-500 dark:focus:ring-cyan-500/10"
+        defaultValue={defaultValue}
+        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-500/50 focus:outline-none focus:ring-4 focus:ring-cyan-500/10 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100"
       >
         {children}
       </select>
-    </div>
-  );
-}
-
-function InfoCard({ title, text }: any) {
-  return (
-    <div className="rounded-xl border border-slate-300 bg-white p-2 dark:border-slate-800 dark:bg-slate-950/70">
-      <p className="text-xs font-semibold uppercase text-slate-800 dark:text-slate-500">{title}</p>
-      <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">{text}</p>
     </div>
   );
 }

@@ -1,5 +1,20 @@
 import { z } from "zod";
 
+const urlOrigenSchema = z
+  .string()
+  .trim()
+  .min(1, "La URL origen es obligatoria")
+  .refine((value) => {
+    const normalized = value.toLowerCase();
+
+    return (
+      normalized.startsWith("http://") ||
+      normalized.startsWith("https://") ||
+      normalized.startsWith("rtsp://") ||
+      normalized.startsWith("udp://")
+    );
+  }, "La URL origen debe comenzar con http://, https://, rtsp:// o udp://");
+
 export const createChannelSchema = z.object({
   nombre: z
     .string()
@@ -27,10 +42,7 @@ export const createChannelSchema = z.object({
     .optional()
     .or(z.literal("")),
 
-  urlOrigen: z
-    .string()
-    .trim()
-    .url("La URL origen debe ser válida"),
+  urlOrigen: urlOrigenSchema,
 
   estado: z.enum(["activo", "suspendido"]),
 });
