@@ -158,6 +158,31 @@ async function resolvePlaybackNode(location: any) {
   };
 }
 
+function extractTvheadendChannelId(url: string) {
+  if (!url) return null;
+
+  const match = url.match(/\/stream\/channelid\/(\d+)(?:\?|$)/i);
+  return match?.[1] || null;
+}
+
+function buildPlaybackPath(channelMongoId: string, sourceUrl: string) {
+  const tvheadendChannelId = extractTvheadendChannelId(sourceUrl);
+
+  if (tvheadendChannelId) {
+    return {
+      path: `proxy/${tvheadendChannelId}.ts`,
+      mode: "proxy-ts",
+      remoteChannelId: tvheadendChannelId,
+    };
+  }
+
+  return {
+    path: `stream/${channelMongoId}`,
+    mode: "stream",
+    remoteChannelId: null,
+  };
+}
+
 export async function resolveChannelStream(userId: string, channelId: string) {
   await connectDB();
 
@@ -224,12 +249,17 @@ export async function resolveChannelStream(userId: string, channelId: string) {
 
   const normalizedChannel = normalizeChannelDocument(channel);
   const location = (user as any).localidadId || null;
-  const channelPath = `stream/${String((channel as any)._id)}`;
+  const playbackRoute = buildPlaybackPath(
+    String((channel as any)._id),
+    normalizedChannel?.urlOrigen || (channel as any).urlOrigen || ""
+  );
   const playbackNode = await resolvePlaybackNode(location);
 
   if (playbackNode.node && playbackNode.node.urlBase) {
     return {
       strategy: playbackNode.strategy,
+      playbackMode: playbackRoute.mode,
+      remoteChannelId: playbackRoute.remoteChannelId,
       user: {
         id: String((user as any)._id),
         nombre: (user as any).nombre,
@@ -258,7 +288,7 @@ export async function resolveChannelStream(userId: string, channelId: string) {
         visibleName: gridItem.name,
         sourceName: gridItem.sourceName || normalizedChannel?.sourceName || "",
       },
-      streamUrl: joinUrl(playbackNode.node.urlBase, channelPath),
+      streamUrl: joinUrl(playbackNode.node.urlBase, playbackRoute.path),
       fallbackUsed: playbackNode.fallbackUsed,
       directSourceUrl: normalizedChannel?.urlOrigen || (channel as any).urlOrigen,
     };
@@ -266,6 +296,8 @@ export async function resolveChannelStream(userId: string, channelId: string) {
 
   return {
     strategy: "direct",
+    playbackMode: "direct",
+    remoteChannelId: null,
     user: {
       id: String((user as any)._id),
       nombre: (user as any).nombre,
