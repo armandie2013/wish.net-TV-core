@@ -10,6 +10,12 @@ import { loginUser } from "@/services/auth.service";
 import { updateUserPasswordSchema } from "@/validations/user.validation";
 import { updateUserPassword } from "@/services/user.service";
 import { createSystemLog } from "@/services/system-log.service";
+import {
+  assertConnectionLimit,
+  getClientIp,
+  getDeviceId,
+  registerActiveConnection,
+} from "@/services/active-connection.service";
 
 type AppGridChannel = {
   numero: number;
@@ -31,6 +37,7 @@ function getAuthTokenFromRequest(request: Request) {
 
   const cookieHeader = request.headers.get("cookie") || "";
   const tokenMatch = cookieHeader.match(/auth_token=([^;]+)/);
+
   return tokenMatch?.[1];
 }
 
@@ -50,81 +57,67 @@ function normalizeChannelDocument(channel: any) {
 }
 
 function buildGridFromPlan(plan: any): AppGridChannel[] {
-  const rawGrid = Array.isArray(plan.grillaCanales) ? plan.grillaCanales : [];
+  const rawGrid = Array.isArray(plan?.grillaCanales)
+    ? plan.grillaCanales
+    : [];
 
   if (rawGrid.length > 0) {
-    return rawGrid
-      .map((item: any, index: number) => {
-        const channel =
-          item.channelId && typeof item.channelId === "object"
-            ? normalizeChannelDocument(item.channelId)
-            : null;
+    const grid: AppGridChannel[] = [];
 
-        if (!channel) return null;
-        if (channel.estado !== "activo") return null;
-        if (!item.habilitado) return null;
+    rawGrid.forEach((item: any, index: number) => {
+      const channel =
+        item.channelId && typeof item.channelId === "object"
+          ? normalizeChannelDocument(item.channelId)
+          : null;
 
-        return {
-          numero: Number(item.numero || index + 1),
-          orden: Number(item.orden || index + 1),
-          id: String(channel._id),
-          name: item.nombreVisible?.trim() || channel.nombre,
-          logo: item.logo || channel.logo || "",
-          category: item.categoria || channel.categoria || "General",
-          sourceName: item.sourceName || channel.sourceName || "",
-          enabled: true,
-        };
-      })
-      .filter(Boolean)
-      .sort((a: any, b: any) => a.orden - b.orden);
+      if (!channel) return;
+      if (channel.estado !== "activo") return;
+      if (!item.habilitado) return;
+
+      grid.push({
+        numero: Number(item.numero || index + 1),
+        orden: Number(item.orden || index + 1),
+        id: String(channel._id),
+        name: item.nombreVisible?.trim() || channel.nombre,
+        logo: item.logo || channel.logo || "",
+        category: item.categoria || channel.categoria || "General",
+        sourceName: item.sourceName || channel.sourceName || "",
+        enabled: true,
+      });
+    });
+
+    return grid.sort((a, b) => a.orden - b.orden);
   }
 
-  const fallbackChannels = Array.isArray(plan.canalesPermitidos)
+  const fallbackChannels = Array.isArray(plan?.canalesPermitidos)
     ? plan.canalesPermitidos
     : [];
 
-  return fallbackChannels
-    .map((channel: any, index: number) => {
-      const normalized = normalizeChannelDocument(channel);
+  const fallbackGrid: AppGridChannel[] = [];
 
-      if (!normalized) return null;
-      if (normalized.estado !== "activo") return null;
+  fallbackChannels.forEach((channel: any, index: number) => {
+    const normalized = normalizeChannelDocument(channel);
 
-      return {
-        numero: index + 1,
-        orden: index + 1,
-        id: normalized._id,
-        name: normalized.nombre,
-        logo: normalized.logo || "",
-        category: normalized.categoria || "General",
-        sourceName: normalized.sourceName || "",
-        enabled: true,
-      };
-    })
-    .filter(Boolean) as AppGridChannel[];
+    if (!normalized) return;
+    if (normalized.estado !== "activo") return;
+
+    fallbackGrid.push({
+      numero: index + 1,
+      orden: index + 1,
+      id: normalized._id,
+      name: normalized.nombre,
+      logo: normalized.logo || "",
+      category: normalized.categoria || "General",
+      sourceName: normalized.sourceName || "",
+      enabled: true,
+    });
+  });
+
+  return fallbackGrid;
 }
-
-// async function getAuthenticatedUserWithPlan(request: Request) {
-//   const token = getAuthTokenFromRequest(request);
-
-//   if (!token) {
-//     return {
-//       error: NextResponse.json(
-//         { ok: false, message: "No autenticado" },
-//         { status: 401 }
-//       ),
-//       user: null,
-//     };
-//   }
 
 async function getAuthenticatedUserWithPlan(request: Request) {
   const token = getAuthTokenFromRequest(request);
-
-  console.log("[APP AUTH] token present:", Boolean(token));
-  console.log(
-    "[APP AUTH] token preview:",
-    token ? `${token.slice(0, 30)}...` : null
-  );
 
   if (!token) {
     return {
@@ -137,8 +130,6 @@ async function getAuthenticatedUserWithPlan(request: Request) {
   }
 
   const payload = verifyAuthToken(token);
-
-  console.log("[APP AUTH] payload:", payload);
 
   if (!payload) {
     return {
@@ -168,8 +159,6 @@ async function getAuthenticatedUserWithPlan(request: Request) {
     })
     .select("nombre email rol estado localidad conexionesPermitidas planId")
     .lean();
-
-  console.log("[APP AUTH] user found:", Boolean(user));
 
   if (!user) {
     return {
@@ -202,9 +191,6 @@ async function getAuthenticatedUserWithPlan(request: Request) {
   }
 
   const plan = (user as any).planId;
-
-  console.log("[APP AUTH] plan found:", Boolean(plan));
-  console.log("[APP AUTH] plan status:", plan?.estado);
 
   if (plan.estado && plan.estado !== "activo") {
     return {
@@ -258,7 +244,9 @@ export async function getLiveController(request: Request) {
       },
       { status: 200 }
     );
-  } catch {
+  } catch (error) {
+    console.error("[APP_LIVE_ERROR]", error);
+
     return NextResponse.json(
       { ok: false, message: "Error interno" },
       { status: 500 }
@@ -286,7 +274,7 @@ export async function getMeController(request: Request) {
           rol: user.rol,
           estado: user.estado,
           localidad: user.localidad || "principal",
-          conexionesPermitidas: user.conexionesPermitidas,
+          conexionesPermitidas: user.conexionesPermitidas || 1,
           plan: user.planId
             ? {
                 id: String(user.planId._id),
@@ -298,7 +286,9 @@ export async function getMeController(request: Request) {
       },
       { status: 200 }
     );
-  } catch {
+  } catch (error) {
+    console.error("[APP_ME_ERROR]", error);
+
     return NextResponse.json(
       { ok: false, message: "Error interno" },
       { status: 500 }
@@ -323,7 +313,53 @@ export async function getChannelPlayController(
     const grid = buildGridFromPlan(plan);
     const gridItem = grid.find((item) => item.id === params.id) || null;
 
-    const resolved = await resolveChannelStream(String(user._id), params.id);
+    const userId = String(user._id);
+    const deviceId = getDeviceId(request, userId);
+    const ip = getClientIp(request);
+    const userAgent = request.headers.get("user-agent") || "";
+
+    const limitResult = await assertConnectionLimit({
+      userId,
+      deviceId,
+      conexionesPermitidas: Number(user.conexionesPermitidas || 1),
+    });
+
+    if (!limitResult.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "CONNECTION_LIMIT_REACHED",
+          message: "Esta cuenta alcanzó el límite de conexiones permitidas.",
+          limit: limitResult.limit,
+          activeConnections: limitResult.activeConnections,
+        },
+        { status: 403 }
+      );
+    }
+
+    const resolved = await resolveChannelStream(userId, params.id);
+    const resolvedAny = resolved as any;
+
+    await registerActiveConnection({
+      userId,
+      deviceId,
+      channelId: params.id,
+      channelName:
+        gridItem?.name ||
+        resolvedAny.channel?.name ||
+        resolvedAny.channel?.nombre ||
+        "",
+      ip,
+      userAgent,
+      strategy: resolvedAny.strategy || "",
+      streamUrl: resolvedAny.streamUrl || "",
+      nodeId:
+        resolvedAny.node?._id?.toString?.() ||
+        resolvedAny.node?.id?.toString?.() ||
+        null,
+      nodeName: resolvedAny.node?.nombre || resolvedAny.node?.name || "",
+      nodeCode: resolvedAny.node?.codigo || resolvedAny.node?.code || "",
+    });
 
     return NextResponse.json(
       {
@@ -345,6 +381,14 @@ export async function getChannelPlayController(
           streamUrl: resolved.streamUrl,
           directSourceUrl: resolved.directSourceUrl,
         },
+        connection: {
+          deviceId,
+          activeConnections:
+            limitResult.reason === "new-device"
+              ? limitResult.activeConnections + 1
+              : limitResult.activeConnections,
+          limit: limitResult.limit,
+        },
       },
       { status: 200 }
     );
@@ -356,10 +400,10 @@ export async function getChannelPlayController(
       message === "El canal no está disponible para este usuario"
         ? 403
         : message === "Canal no encontrado"
-        ? 404
-        : message === "Canal inválido"
-        ? 400
-        : 500;
+          ? 404
+          : message === "Canal inválido"
+            ? 400
+            : 500;
 
     return NextResponse.json({ ok: false, message }, { status });
   }
@@ -382,8 +426,9 @@ export async function getChannelStreamRedirectController(
 
     return NextResponse.redirect(resolved.streamUrl, 302);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Error interno";
+    console.error("[APP_CHANNEL_REDIRECT_ERROR]", error);
+
+    const message = error instanceof Error ? error.message : "Error interno";
 
     const status =
       message === "El canal no está disponible para este usuario"
@@ -524,7 +569,9 @@ export async function appChangePasswordController(request: Request) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "No se pudo actualizar la contraseña";
+      error instanceof Error
+        ? error.message
+        : "No se pudo actualizar la contraseña";
 
     return NextResponse.json({ ok: false, message }, { status: 400 });
   }
