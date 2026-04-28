@@ -360,6 +360,32 @@ type Props = {
   initialGrid?: GridItem[];
 };
 
+function formatOrden(index: number) {
+  return String(index + 1).padStart(3, "0");
+}
+
+function sortChannelsByName(channels: Channel[]) {
+  return [...channels].sort((a, b) => {
+    const nombreA = a.nombre || "";
+    const nombreB = b.nombre || "";
+
+    const compareNombre = nombreA.localeCompare(nombreB, "es", {
+      sensitivity: "base",
+      numeric: true,
+    });
+
+    if (compareNombre !== 0) return compareNombre;
+
+    const categoriaA = a.categoria || "";
+    const categoriaB = b.categoria || "";
+
+    return categoriaA.localeCompare(categoriaB, "es", {
+      sensitivity: "base",
+      numeric: true,
+    });
+  });
+}
+
 function normalizeGridItem(
   item: Partial<GridItem> | undefined,
   index: number,
@@ -387,24 +413,26 @@ export default function PlanGridEditor({
   initialCantidad = 1,
   initialGrid = [],
 }: Props) {
+  const orderedChannels = useMemo(() => sortChannelsByName(channels), [channels]);
+
   const safeInitialCantidad = Math.max(1, Number(initialCantidad) || 1);
 
   const initialState = useMemo(() => {
     const base =
       Array.isArray(initialGrid) && initialGrid.length > 0
         ? initialGrid.map((item, index) =>
-            normalizeGridItem(item, index, channels)
+            normalizeGridItem(item, index, orderedChannels)
           )
         : Array.from({ length: safeInitialCantidad }, (_, index) =>
-            normalizeGridItem(undefined, index, channels)
+            normalizeGridItem(undefined, index, orderedChannels)
           );
 
     while (base.length < safeInitialCantidad) {
-      base.push(normalizeGridItem(undefined, base.length, channels));
+      base.push(normalizeGridItem(undefined, base.length, orderedChannels));
     }
 
     return base.slice(0, safeInitialCantidad);
-  }, [channels, initialGrid, safeInitialCantidad]);
+  }, [orderedChannels, initialGrid, safeInitialCantidad]);
 
   const [cantidadAplicada, setCantidadAplicada] = useState(safeInitialCantidad);
   const [cantidadInput, setCantidadInput] = useState(
@@ -430,7 +458,7 @@ export default function PlanGridEditor({
 
       if (next.length < nextSize) {
         for (let i = next.length; i < nextSize; i += 1) {
-          next.push(normalizeGridItem(undefined, i, channels));
+          next.push(normalizeGridItem(undefined, i, orderedChannels));
         }
       } else if (next.length > nextSize) {
         next.length = nextSize;
@@ -474,7 +502,7 @@ export default function PlanGridEditor({
 
   function handleChannelChange(index: number, channelId: string) {
     const channel =
-      channels.find((c) => String(c._id) === String(channelId)) || null;
+      orderedChannels.find((c) => String(c._id) === String(channelId)) || null;
 
     setGrid((prev) =>
       prev.map((item, i) =>
@@ -482,7 +510,7 @@ export default function PlanGridEditor({
           ? {
               ...item,
               channelId,
-              nombreVisible: item.nombreVisible || channel?.nombre || "",
+              nombreVisible: channel?.nombre || "",
               logo: channel?.logo || "",
               categoria: channel?.categoria || "",
               sourceName: channel?.sourceName || "",
@@ -571,9 +599,10 @@ export default function PlanGridEditor({
           <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             Grilla del plan
           </h2>
+
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
-            Elegí qué canal ocupa cada número. La app usará exactamente este
-            orden.
+            Elegí qué canal ocupa cada número. El selector de canales está
+            ordenado alfabéticamente.
           </p>
         </div>
 
@@ -610,12 +639,13 @@ export default function PlanGridEditor({
                         onChange={(e) =>
                           handleChannelChange(index, e.target.value)
                         }
-                        className="w-[280px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
+                        className="w-[320px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
                       >
                         <option value="">Seleccionar canal</option>
-                        {channels.map((channel) => (
+
+                        {orderedChannels.map((channel, channelIndex) => (
                           <option key={channel._id} value={channel._id}>
-                            {channel.nombre}
+                            {formatOrden(channelIndex)} - {channel.nombre}
                             {channel.sourceName
                               ? ` — ${channel.sourceName}`
                               : ""}
