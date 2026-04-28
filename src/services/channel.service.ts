@@ -10,7 +10,12 @@ export async function getAllChannels() {
   await connectDB();
 
   const channels = await Channel.find({})
-    .sort({ createdAt: -1 })
+    .sort({ nombre: 1, categoria: 1, createdAt: 1 })
+    .collation({
+      locale: "es",
+      strength: 1,
+      numericOrdering: true,
+    })
     .lean();
 
   return channels.map((channel) => ({
