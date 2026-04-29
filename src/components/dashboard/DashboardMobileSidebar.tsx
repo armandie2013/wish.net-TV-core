@@ -42,7 +42,7 @@ export default function DashboardMobileSidebar({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white p-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 lg:hidden"
+        className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white p-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 lg:hidden"
         aria-label="Abrir menú"
       >
         <Menu className="h-5 w-5" />
@@ -50,7 +50,7 @@ export default function DashboardMobileSidebar({
 
       <div
         className={[
-          "fixed inset-0 z-[70] lg:hidden transition",
+          "fixed inset-0 z-[70] transition lg:hidden",
           open ? "pointer-events-auto" : "pointer-events-none",
         ].join(" ")}
       >
@@ -64,11 +64,11 @@ export default function DashboardMobileSidebar({
 
         <aside
           className={[
-            "absolute left-0 top-0 flex h-full w-[88vw] max-w-80 flex-col border-r border-slate-200 bg-white/95 shadow-2xl backdrop-blur-sm transition-transform dark:border-slate-800 dark:bg-slate-900/95",
+            "absolute left-0 top-0 flex h-dvh min-h-0 w-[88vw] max-w-80 flex-col border-r border-slate-200 bg-white/95 shadow-2xl backdrop-blur-sm transition-transform dark:border-slate-800 dark:bg-slate-900/95",
             open ? "translate-x-0" : "-translate-x-full",
           ].join(" ")}
         >
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800">
+          <div className="shrink-0 flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
             <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-400">
               Menú
             </span>
@@ -76,17 +76,19 @@ export default function DashboardMobileSidebar({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white p-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white p-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
               aria-label="Cerrar menú"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <DashboardSidebarContent
-            appName={appName}
-            onNavigate={() => setOpen(false)}
-          />
+          <div className="min-h-0 flex-1">
+            <DashboardSidebarContent
+              appName={appName}
+              onNavigate={() => setOpen(false)}
+            />
+          </div>
         </aside>
       </div>
     </>

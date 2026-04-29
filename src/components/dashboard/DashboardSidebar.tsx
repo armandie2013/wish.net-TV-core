@@ -81,39 +81,39 @@ export function DashboardSidebarContent({
   const configActive = groupHasActive(pathname, configItems);
 
   return (
-    <>
-      <div className="border-b border-slate-300 px-5 py-5 dark:border-slate-800">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-slate-300 px-4 py-4 dark:border-slate-800">
         <div
-          className="inline-flex max-w-full items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-800 dark:border-cyan-900 dark:bg-cyan-950 dark:text-cyan-300"
+          className="inline-flex max-w-full items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-blue-800 dark:border-cyan-900 dark:bg-cyan-950 dark:text-cyan-300"
           title={appName}
         >
           <span className="truncate">{appName}</span>
         </div>
 
-        <h1 className="mt-3 text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
+        <h1 className="mt-3 text-base font-bold tracking-tight text-slate-900 dark:text-white">
           Panel administrativo
         </h1>
 
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-400">
           Gestión central del sistema IPTV
         </p>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-4 py-5">
-        <div className="space-y-5">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sidebar-scroll">
+        <div className="space-y-4">
           {navGroups.map((group) => {
             const activeGroup = groupHasActive(pathname, group.items);
 
             return (
               <div key={group.label}>
-                <div className="mb-2 flex items-center justify-between px-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-500">
+                <div className="mb-1.5 flex items-center justify-between px-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-500">
                     {group.label}
                   </span>
 
                   <ChevronDown
                     className={[
-                      "h-4 w-4 transition",
+                      "h-3.5 w-3.5 transition",
                       activeGroup
                         ? "text-blue-600 dark:text-cyan-400"
                         : "text-slate-400 dark:text-slate-600",
@@ -121,7 +121,7 @@ export function DashboardSidebarContent({
                   />
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {group.items.map((item) => {
                     const active = isActivePath(pathname, item.href);
                     const Icon = item.icon;
@@ -132,7 +132,7 @@ export function DashboardSidebarContent({
                         href={item.href}
                         onClick={onNavigate}
                         className={[
-                          "group flex items-center rounded-2xl border px-3 py-2.5 text-sm font-medium transition",
+                          "group flex items-center rounded-xl border px-3 py-2 text-[13px] font-medium transition",
                           active
                             ? "border-blue-200 bg-blue-50 text-blue-800 shadow-sm dark:border-cyan-900/60 dark:bg-cyan-950/40 dark:text-cyan-300"
                             : "border-transparent text-slate-800 hover:border-slate-300 hover:bg-slate-200/70 hover:text-slate-900 dark:text-slate-300 dark:hover:border-slate-800 dark:hover:bg-slate-800/80 dark:hover:text-white",
@@ -157,18 +157,20 @@ export function DashboardSidebarContent({
           })}
 
           <div>
-            <div className="mb-2 flex items-center justify-between px-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-500">
+            <div className="mb-1.5 flex items-center justify-between px-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-500">
                 Configuración
               </span>
 
               <button
+                type="button"
                 onClick={() => setConfigOpen((prev) => !prev)}
                 className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 hover:text-blue-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-cyan-400"
+                aria-label="Abrir o cerrar configuración"
               >
                 <ChevronDown
                   className={[
-                    "h-4 w-4 transition",
+                    "h-3.5 w-3.5 transition",
                     configOpen ? "rotate-180" : "",
                     configActive
                       ? "text-blue-600 dark:text-cyan-400"
@@ -178,12 +180,12 @@ export function DashboardSidebarContent({
               </button>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <button
                 type="button"
                 onClick={() => setConfigOpen((prev) => !prev)}
                 className={[
-                  "group flex w-full items-center rounded-2xl border px-3 py-2.5 text-left text-sm font-medium transition",
+                  "group flex w-full items-center rounded-xl border px-3 py-2 text-left text-[13px] font-medium transition",
                   configActive
                     ? "border-blue-200 bg-blue-50 text-blue-800 shadow-sm dark:border-cyan-900/60 dark:bg-cyan-950/40 dark:text-cyan-300"
                     : "border-transparent text-slate-800 hover:border-slate-300 hover:bg-slate-200/70 hover:text-slate-900 dark:text-slate-300 dark:hover:border-slate-800 dark:hover:bg-slate-800/80 dark:hover:text-white",
@@ -191,14 +193,14 @@ export function DashboardSidebarContent({
               >
                 <Settings
                   className={[
-                    "mr-3 h-4 w-4",
+                    "mr-3 h-4 w-4 shrink-0",
                     configActive
                       ? "text-blue-600 dark:text-cyan-400"
                       : "text-slate-500 group-hover:text-blue-600 dark:text-slate-500 dark:group-hover:text-cyan-400",
                   ].join(" ")}
                 />
 
-                Configuración
+                <span className="truncate">Configuración</span>
               </button>
 
               {configOpen && (
@@ -213,7 +215,7 @@ export function DashboardSidebarContent({
                         href={item.href}
                         onClick={onNavigate}
                         className={[
-                          "group flex items-center rounded-xl border px-3 py-2 text-sm transition",
+                          "group flex items-center rounded-lg border px-2.5 py-1.5 text-[12px] transition",
                           active
                             ? "border-blue-200 bg-blue-50 text-blue-800 shadow-sm dark:border-cyan-900/60 dark:bg-cyan-950/40 dark:text-cyan-300"
                             : "border-transparent text-slate-700 hover:border-slate-300 hover:bg-slate-200/70 hover:text-slate-900 dark:text-slate-400 dark:hover:border-slate-800 dark:hover:bg-slate-800/80 dark:hover:text-white",
@@ -221,14 +223,14 @@ export function DashboardSidebarContent({
                       >
                         <Icon
                           className={[
-                            "mr-3 h-4 w-4",
+                            "mr-2 h-3.5 w-3.5 shrink-0",
                             active
                               ? "text-blue-600 dark:text-cyan-400"
                               : "text-slate-500 group-hover:text-blue-600 dark:text-slate-500 dark:group-hover:text-cyan-400",
                           ].join(" ")}
                         />
 
-                        {item.label}
+                        <span className="truncate">{item.label}</span>
                       </Link>
                     );
                   })}
@@ -239,30 +241,30 @@ export function DashboardSidebarContent({
         </div>
       </nav>
 
-      <div className="border-t border-slate-300 px-4 py-4 dark:border-slate-800">
-        <div className="rounded-2xl border border-slate-300 bg-slate-200/70 p-4 dark:border-slate-800 dark:bg-slate-950/60">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400">
+      <div className="shrink-0 border-t border-slate-300 px-3 py-3 dark:border-slate-800">
+        <div className="rounded-xl border border-slate-300 bg-slate-200/70 p-3 dark:border-slate-800 dark:bg-slate-950/60">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400">
             Estado del sistema
           </p>
 
-          <div className="mt-3 flex items-center justify-between">
-            <span className="text-sm text-slate-700 dark:text-slate-300">
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[12px] text-slate-700 dark:text-slate-300">
               Core
             </span>
 
-            <span className="rounded-full border border-emerald-400 bg-emerald-300 px-2 py-0.5 text-[10px] font-semibold text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
+            <span className="rounded-full border border-emerald-400 bg-emerald-300 px-2 py-0.5 text-[9px] font-semibold text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
               ONLINE
             </span>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
 export default function DashboardSidebar({ appName }: { appName: string }) {
   return (
-    <aside className="hidden w-72 shrink-0 border-r border-slate-300 bg-slate-100/90 backdrop-blur-sm transition-colors dark:border-slate-800 dark:bg-slate-900/85 lg:flex lg:flex-col">
+    <aside className="hidden h-screen min-h-0 w-72 shrink-0 border-r border-slate-300 bg-slate-100/90 backdrop-blur-sm transition-colors dark:border-slate-800 dark:bg-slate-900/85 lg:flex lg:flex-col">
       <DashboardSidebarContent appName={appName} />
     </aside>
   );
