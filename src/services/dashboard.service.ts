@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import ActiveConnection from "@/models/ActiveConnection";
+import "@/models/Plan";
 import "@/models/Channel";
 import { getRecentSystemLogs } from "@/services/system-log.service";
 
@@ -32,7 +33,9 @@ export async function getDashboardStats() {
       .lean(),
 
     User.find()
-      .select("nombre email rol estado localidad conexionesPermitidas lastSeen planId")
+      .select(
+        "nombre email rol estado localidad conexionesPermitidas lastSeen planId"
+      )
       .populate("planId", "nombre")
       .sort({ nombre: 1 })
       .lean(),
