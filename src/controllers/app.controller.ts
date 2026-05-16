@@ -479,7 +479,7 @@ export async function appLoginController(request: Request) {
     await createSystemLog({
       action: "AUTH_LOGIN_APP",
       message: "Inicio de sesión exitoso desde app",
-      actorId: appUser._id,
+      actorId: String(appUser.id || appUser._id),
       actorName: appUser.nombre,
       actorEmail: appUser.email,
     });
@@ -488,9 +488,10 @@ export async function appLoginController(request: Request) {
       {
         ok: true,
         token: result.token,
+        tokenExpiresIn: result.tokenExpiresIn,
         mustChangePassword: result.mustChangePassword,
         user: {
-          id: String(appUser._id),
+          id: String(appUser.id || appUser._id),
           nombre: appUser.nombre,
           email: appUser.email,
           rol: appUser.rol,

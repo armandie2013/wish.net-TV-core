@@ -5,6 +5,7 @@ import {
   getChannelById,
   updateChannel,
   toggleChannelStatus,
+  deleteChannel,
 } from "@/services/channel.service";
 import {
   createChannelSchema,
@@ -64,10 +65,7 @@ function handleGuardError(request: Request, error: unknown) {
     );
   }
 
-  return NextResponse.redirect(
-    buildUrlFromRequest(request, "/dashboard"),
-    303
-  );
+  return NextResponse.redirect(buildUrlFromRequest(request, "/dashboard"), 303);
 }
 
 export async function getChannelsController(request: Request) {
@@ -344,7 +342,59 @@ export async function toggleChannelStatusController(
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Error al cambiar el estado del canal";
+      error instanceof Error
+        ? error.message
+        : "Error al cambiar el estado del canal";
+
+    return NextResponse.redirect(
+      buildUrlFromRequest(
+        request,
+        `/canales?error=${encodeURIComponent(message)}`
+      ),
+      303
+    );
+  }
+}
+
+export async function deleteChannelController(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const guardResponse = handleGuardError(
+      request,
+      await requireAdminFromRequest(request).catch((error) => error)
+    );
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const currentUser = await requireAdminFromRequest(request);
+    const deletedChannel = await deleteChannel(params.id);
+
+    await createSystemLog({
+      action: "CHANNEL_DELETE",
+      message:
+        "Se eliminó un canal y se limpiaron sus referencias en los planes",
+      actorId: currentUser._id,
+      actorName: currentUser.nombre,
+      actorEmail: currentUser.email,
+      targetId: deletedChannel._id,
+      targetName: deletedChannel.nombre,
+      meta: {
+        categoria: deletedChannel.categoria,
+        estado: deletedChannel.estado,
+      },
+    });
+
+    return NextResponse.redirect(
+      buildUrlFromRequest(request, "/canales?success=channel-deleted"),
+      303
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al eliminar canal";
 
     return NextResponse.redirect(
       buildUrlFromRequest(

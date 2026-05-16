@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import Plan from "@/models/Plan";
-import "@/models/Channel";
+import Channel from "@/models/Channel";
 import type {
   CreatePlanInput,
   UpdatePlanInput,
@@ -41,7 +41,7 @@ function buildGridFallbackFromAllowedChannels(plan: any) {
       orden: index + 1,
       channelId: normalizedChannel,
       nombreVisible: normalizedChannel?.nombre || "",
-      habilitado: true,
+      habilitado: normalizedChannel?.estado === "activo",
       logo: normalizedChannel?.logo || "",
       categoria: normalizedChannel?.categoria || "",
       sourceName: normalizedChannel?.sourceName || "",
@@ -50,7 +50,9 @@ function buildGridFallbackFromAllowedChannels(plan: any) {
 }
 
 function normalizeGrid(plan: any) {
-  const existingGrid = Array.isArray(plan.grillaCanales) ? plan.grillaCanales : [];
+  const existingGrid = Array.isArray(plan.grillaCanales)
+    ? plan.grillaCanales
+    : [];
 
   if (existingGrid.length > 0) {
     return existingGrid.map((item: any, index: number) => {
@@ -59,6 +61,8 @@ function normalizeGrid(plan: any) {
           ? normalizePopulatedChannel(item.channelId)
           : null;
 
+      const channelIsSuspended = normalizedChannel?.estado === "suspendido";
+
       return {
         numero: item.numero || index + 1,
         orden: item.orden || index + 1,
@@ -66,7 +70,7 @@ function normalizeGrid(plan: any) {
           normalizedChannel ||
           (typeof item.channelId === "string" ? item.channelId : ""),
         nombreVisible: item.nombreVisible || normalizedChannel?.nombre || "",
-        habilitado: item.habilitado ?? false,
+        habilitado: channelIsSuspended ? false : Boolean(item.habilitado),
         logo: item.logo || normalizedChannel?.logo || "",
         categoria: item.categoria || normalizedChannel?.categoria || "",
         sourceName: item.sourceName || normalizedChannel?.sourceName || "",
@@ -78,8 +82,8 @@ function normalizeGrid(plan: any) {
 }
 
 function mapPlan(plan: any) {
-  const normalizedAllowedChannels = (plan.canalesPermitidos || []).map((channel: any) =>
-    normalizePopulatedChannel(channel)
+  const normalizedAllowedChannels = (plan.canalesPermitidos || []).map(
+    (channel: any) => normalizePopulatedChannel(channel)
   );
 
   const normalizedGrid = normalizeGrid(plan);
@@ -107,7 +111,8 @@ function buildPersistedGrid(data: CreatePlanInput | UpdatePlanInput) {
   return data.grillaCanales.map((item) => ({
     numero: item.numero,
     orden: item.orden,
-    channelId: item.channelId && isValidObjectId(item.channelId) ? item.channelId : null,
+    channelId:
+      item.channelId && isValidObjectId(item.channelId) ? item.channelId : null,
     nombreVisible: item.nombreVisible || "",
     habilitado: Boolean(item.habilitado),
     logo: item.logo || "",
@@ -116,12 +121,63 @@ function buildPersistedGrid(data: CreatePlanInput | UpdatePlanInput) {
   }));
 }
 
-function buildAllowedChannelsFromGrid(data: CreatePlanInput | UpdatePlanInput) {
-  return uniqueStrings(
+async function buildAllowedChannelsFromGrid(data: CreatePlanInput | UpdatePlanInput) {
+  const selectedIds = uniqueStrings(
     data.grillaCanales
-      .filter((item) => item.habilitado && item.channelId && isValidObjectId(item.channelId))
+      .filter(
+        (item) =>
+          item.habilitado &&
+          item.channelId &&
+          isValidObjectId(item.channelId)
+      )
       .map((item) => item.channelId)
   );
+
+  if (selectedIds.length === 0) {
+    return [];
+  }
+
+  const activeChannels = await Channel.find({
+    _id: { $in: selectedIds },
+    estado: "activo",
+  })
+    .select("_id")
+    .lean();
+
+  return activeChannels.map((channel: any) => String(channel._id));
+}
+
+async function forceSuspendedChannelsDisabled(grillaCanales: any[]) {
+  const ids = uniqueStrings(
+    grillaCanales
+      .filter((item) => item.channelId && isValidObjectId(String(item.channelId)))
+      .map((item) => String(item.channelId))
+  );
+
+  if (ids.length === 0) {
+    return grillaCanales.map((item) => ({
+      ...item,
+      habilitado: false,
+    }));
+  }
+
+  const activeChannels = await Channel.find({
+    _id: { $in: ids },
+    estado: "activo",
+  })
+    .select("_id")
+    .lean();
+
+  const activeSet = new Set(activeChannels.map((channel: any) => String(channel._id)));
+
+  return grillaCanales.map((item) => {
+    const channelId = item.channelId ? String(item.channelId) : "";
+
+    return {
+      ...item,
+      habilitado: Boolean(item.habilitado && channelId && activeSet.has(channelId)),
+    };
+  });
 }
 
 export async function getAllPlans() {
@@ -147,8 +203,12 @@ export async function createPlan(data: CreatePlanInput) {
     throw new Error("Ya existe un plan con ese nombre");
   }
 
-  const grillaCanales = buildPersistedGrid(data);
-  const canalesPermitidos = buildAllowedChannelsFromGrid(data);
+  const rawGrid = buildPersistedGrid(data);
+  const grillaCanales = await forceSuspendedChannelsDisabled(rawGrid);
+  const canalesPermitidos = await buildAllowedChannelsFromGrid({
+    ...data,
+    grillaCanales,
+  });
 
   const plan = await Plan.create({
     nombre: data.nombre,
@@ -203,8 +263,12 @@ export async function updatePlan(id: string, data: UpdatePlanInput) {
     throw new Error("Ya existe otro plan con ese nombre");
   }
 
-  const grillaCanales = buildPersistedGrid(data);
-  const canalesPermitidos = buildAllowedChannelsFromGrid(data);
+  const rawGrid = buildPersistedGrid(data);
+  const grillaCanales = await forceSuspendedChannelsDisabled(rawGrid);
+  const canalesPermitidos = await buildAllowedChannelsFromGrid({
+    ...data,
+    grillaCanales,
+  });
 
   const updated = await Plan.findByIdAndUpdate(
     id,

@@ -1,4 +1,4 @@
-import mongoose, { Schema, models, model } from "mongoose";
+import { Schema, models, model } from "mongoose";
 
 const ActiveConnectionSchema = new Schema(
   {
@@ -88,7 +88,6 @@ const ActiveConnectionSchema = new Schema(
     expiresAt: {
       type: Date,
       required: true,
-      // index: true,
     },
   },
   {
@@ -97,7 +96,13 @@ const ActiveConnectionSchema = new Schema(
 );
 
 ActiveConnectionSchema.index({ userId: 1, deviceId: 1 }, { unique: true });
-ActiveConnectionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+ActiveConnectionSchema.index(
+  { expiresAt: 1 },
+  {
+    name: "expiresAt_1",
+    expireAfterSeconds: 0,
+  }
+);
 
 const ActiveConnection =
   models.ActiveConnection ||

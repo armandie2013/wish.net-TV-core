@@ -40,7 +40,7 @@ export async function loginController(request: Request) {
     await createSystemLog({
       action: "AUTH_LOGIN",
       message: "Inicio de sesión exitoso",
-      actorId: result.user._id,
+      actorId: result.user.id,
       actorName: result.user.nombre,
       actorEmail: result.user.email,
     });
@@ -59,7 +59,7 @@ export async function loginController(request: Request) {
       sameSite: "lax",
       secure: false,
       path: "/",
-      maxAge: 60 * 60 * 8,
+      maxAge: result.tokenMaxAgeSeconds,
     });
 
     return response;
@@ -230,9 +230,11 @@ export async function appLoginController(request: Request) {
       {
         ok: true,
         token: result.token,
+        tokenExpiresIn: result.tokenExpiresIn,
         mustChangePassword: result.mustChangePassword,
         user: {
-          _id: appUser._id,
+          id: String(appUser.id || appUser._id),
+          _id: String(appUser.id || appUser._id),
           nombre: appUser.nombre,
           email: appUser.email,
           rol: appUser.rol,

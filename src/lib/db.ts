@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ensureDatabaseIndexes } from "@/lib/ensure-database-indexes";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -25,6 +26,7 @@ global.mongooseCache = globalCache;
 
 export async function connectDB() {
   if (globalCache.conn) {
+    await ensureDatabaseIndexes();
     return globalCache.conn;
   }
 
@@ -35,5 +37,8 @@ export async function connectDB() {
   }
 
   globalCache.conn = await globalCache.promise;
+
+  await ensureDatabaseIndexes();
+
   return globalCache.conn;
 }
