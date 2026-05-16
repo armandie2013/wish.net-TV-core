@@ -248,18 +248,50 @@ export async function updateM3uSourceController(
     const currentUser = await requireAdminFromRequest(request);
     const updatedSource = await updateM3uSource(params.id, parsed.data);
 
+    let importResult: Awaited<ReturnType<typeof importM3uSourceNow>> | null =
+      null;
+
+    if (updatedSource.estado === "activo") {
+      importResult = await importM3uSourceNow(params.id);
+    }
+
     await createSystemLog({
       action: "M3U_SOURCE_UPDATE",
-      message: "Se actualizó una fuente M3U",
+      message: importResult
+        ? `Se actualizó una fuente M3U y se sincronizó la base de canales (${importResult.created} nuevos, ${importResult.updated} actualizados, ${importResult.obsoleteSuspended} suspendidos)`
+        : "Se actualizó una fuente M3U",
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
       targetId: updatedSource._id,
       targetName: updatedSource.nombre,
+      meta: importResult
+        ? {
+            totalDetected: importResult.totalDetected,
+            created: importResult.created,
+            updated: importResult.updated,
+            skipped: importResult.skipped,
+            obsoleteSuspended: importResult.obsoleteSuspended,
+            plansSynced: importResult.plansSynced,
+          }
+        : undefined,
     });
 
+    if (importResult) {
+      return NextResponse.redirect(
+        buildUrlFromRequest(
+          request,
+          `/configuracion/m3u-sources?success=import-completed&created=${importResult.created}&updated=${importResult.updated}&detected=${importResult.totalDetected}`
+        ),
+        303
+      );
+    }
+
     return NextResponse.redirect(
-      buildUrlFromRequest(request, "/configuracion/m3u-sources?success=source-updated"),
+      buildUrlFromRequest(
+        request,
+        "/configuracion/m3u-sources?success=source-updated"
+      ),
       303
     );
   } catch (error) {
@@ -269,7 +301,9 @@ export async function updateM3uSourceController(
     return NextResponse.redirect(
       buildUrlFromRequest(
         request,
-        `/configuracion/m3u-sources/${params.id}/edit?error=${encodeURIComponent(message)}`
+        `/configuracion/m3u-sources/${params.id}/edit?error=${encodeURIComponent(
+          message
+        )}`
       ),
       303
     );

@@ -1,10 +1,19 @@
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import Channel from "@/models/Channel";
+import Plan from "@/models/Plan";
 import type {
   CreateChannelInput,
   UpdateChannelInput,
 } from "@/validations/channel.validation";
+
+function mapChannel(channel: any) {
+  return {
+    ...channel,
+    _id: String(channel._id),
+    sourceId: channel.sourceId ? String(channel.sourceId) : null,
+  };
+}
 
 export async function getAllChannels() {
   await connectDB();
@@ -18,10 +27,7 @@ export async function getAllChannels() {
     })
     .lean();
 
-  return channels.map((channel) => ({
-    ...channel,
-    _id: String(channel._id),
-  }));
+  return channels.map(mapChannel);
 }
 
 export async function createChannel(data: CreateChannelInput) {
@@ -76,10 +82,7 @@ export async function getChannelById(id: string) {
     throw new Error("Canal no encontrado");
   }
 
-  return {
-    ...channel,
-    _id: String(channel._id),
-  };
+  return mapChannel(channel);
 }
 
 export async function updateChannel(id: string, data: UpdateChannelInput) {
@@ -124,10 +127,7 @@ export async function updateChannel(id: string, data: UpdateChannelInput) {
     throw new Error("Canal no encontrado");
   }
 
-  return {
-    ...channel,
-    _id: String(channel._id),
-  };
+  return mapChannel(channel);
 }
 
 export async function toggleChannelStatus(id: string) {
@@ -146,6 +146,32 @@ export async function toggleChannelStatus(id: string) {
   channel.estado = channel.estado === "activo" ? "suspendido" : "activo";
   await channel.save();
 
+  if (channel.estado === "suspendido") {
+    await Plan.updateMany(
+      {
+        $or: [
+          { canalesPermitidos: channel._id },
+          { "grillaCanales.channelId": channel._id },
+        ],
+      },
+      {
+        $pull: {
+          canalesPermitidos: channel._id,
+        },
+        $set: {
+          "grillaCanales.$[item].habilitado": false,
+        },
+      },
+      {
+        arrayFilters: [
+          {
+            "item.channelId": channel._id,
+          },
+        ],
+      }
+    );
+  }
+
   return {
     _id: String(channel._id),
     nombre: channel.nombre,
@@ -153,6 +179,56 @@ export async function toggleChannelStatus(id: string) {
     categoria: channel.categoria,
     logo: channel.logo,
     urlOrigen: channel.urlOrigen,
+    estado: channel.estado,
+  };
+}
+
+export async function deleteChannel(id: string) {
+  await connectDB();
+
+  if (!Types.ObjectId.isValid(id)) {
+    throw new Error("ID de canal inválido");
+  }
+
+  const channel = await Channel.findById(id);
+
+  if (!channel) {
+    throw new Error("Canal no encontrado");
+  }
+
+  const channelId = channel._id;
+
+  await Plan.updateMany(
+    {
+      $or: [
+        { canalesPermitidos: channelId },
+        { "grillaCanales.channelId": channelId },
+      ],
+    },
+    {
+      $pull: {
+        canalesPermitidos: channelId,
+      },
+      $set: {
+        "grillaCanales.$[item].channelId": null,
+        "grillaCanales.$[item].habilitado": false,
+      },
+    },
+    {
+      arrayFilters: [
+        {
+          "item.channelId": channelId,
+        },
+      ],
+    }
+  );
+
+  await Channel.findByIdAndDelete(channelId);
+
+  return {
+    _id: String(channelId),
+    nombre: channel.nombre,
+    categoria: channel.categoria,
     estado: channel.estado,
   };
 }

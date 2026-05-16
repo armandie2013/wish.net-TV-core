@@ -61,7 +61,9 @@ export default async function EditPlanPage({
           habilitado: item.habilitado ?? true,
           logo:
             item.logo ||
-            (typeof item.channelId === "object" ? item.channelId?.logo || "" : ""),
+            (typeof item.channelId === "object"
+              ? item.channelId?.logo || ""
+              : ""),
           categoria:
             item.categoria ||
             (typeof item.channelId === "object"
@@ -111,7 +113,7 @@ export default async function EditPlanPage({
         </div>
 
         {error && (
-          <div className="mx-3 mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200">
+          <div className="mx-3 mt-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200">
             {error}
           </div>
         )}
@@ -119,40 +121,48 @@ export default async function EditPlanPage({
         <form
           action={`/api/planes/${plan._id}`}
           method="POST"
-          className="space-y-3 p-3"
+          className="space-y-2 p-3 pb-2"
         >
           <Panel title="Datos del plan">
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field
-                label="Nombre del plan"
-                name="nombre"
-                defaultValue={plan.nombre}
-                required
-                placeholder="Ej: Básico, Full HD, Premium"
-                helper="Nombre visible para administración y asignación de usuarios."
-              />
-
-              <SelectField
-                label="Estado"
-                name="estado"
-                defaultValue={plan.estado || "activo"}
-                options={[
-                  { value: "activo", label: "Activo" },
-                  { value: "suspendido", label: "Suspendido" },
-                ]}
-              />
+            <div className="grid gap-2 md:grid-cols-12">
+              <div className="md:col-span-7">
+                <Field
+                  label="Nombre del plan"
+                  name="nombre"
+                  defaultValue={plan.nombre}
+                  required
+                  maxLength={50}
+                  placeholder="Ej: Básico, Full HD, Premium"
+                  helper="Máximo 50 caracteres."
+                />
+              </div>
 
               <div className="md:col-span-2">
-                <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                <SelectField
+                  label="Estado"
+                  name="estado"
+                  defaultValue={plan.estado || "activo"}
+                  options={[
+                    { value: "activo", label: "Activo" },
+                    { value: "suspendido", label: "Suspendido" },
+                  ]}
+                />
+              </div>
+
+              <div className="hidden md:col-span-3 md:block" />
+
+              <div className="md:col-span-12">
+                <label className="mb-1 block text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
                   Descripción
                 </label>
 
                 <textarea
                   name="descripcion"
-                  rows={4}
+                  rows={2}
+                  maxLength={180}
                   defaultValue={plan.descripcion || ""}
                   placeholder="Detalle interno del plan, alcance, cantidad de señales, zona o condiciones."
-                  className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-[12px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
+                  className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
                 />
               </div>
             </div>
@@ -161,24 +171,26 @@ export default async function EditPlanPage({
           <input type="hidden" name="precio" value={String(plan.precio || 0)} />
 
           <Panel title="Grilla del plan">
-            <PlanGridEditor
-              channels={channels}
-              initialCantidad={plan.cantidadCanales || initialGrid.length || 1}
-              initialGrid={initialGrid}
-            />
+            <div className="h-[calc(100vh-565px)] min-h-[200px] overflow-y-auto overscroll-contain pr-1">
+              <PlanGridEditor
+                channels={channels}
+                initialCantidad={plan.cantidadCanales || initialGrid.length || 1}
+                initialGrid={initialGrid}
+              />
+            </div>
           </Panel>
 
-          <div className="flex flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/30">
+          <div className="sticky bottom-0 z-20 flex flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
             <Link
               href="/planes"
-              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-[12px] font-medium text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-300 bg-slate-100 px-3 text-[11px] font-medium text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
             >
               Cancelar
             </Link>
 
             <button
               type="submit"
-              className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] font-medium text-blue-800 transition hover:bg-blue-100 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20"
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-[11px] font-medium text-blue-800 transition hover:bg-blue-100 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20"
             >
               Guardar cambios
             </button>
@@ -198,11 +210,11 @@ function Panel({
 }) {
   return (
     <div className="rounded-lg border border-slate-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-      <div className="border-b border-slate-200 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-600 dark:border-slate-800 dark:text-slate-300">
+      <div className="border-b border-slate-200 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-600 dark:border-slate-800 dark:text-slate-300">
         {title}
       </div>
 
-      <div className="p-3">{children}</div>
+      <div className="p-2.5">{children}</div>
     </div>
   );
 }
@@ -214,6 +226,7 @@ function Field({
   required,
   defaultValue,
   min,
+  maxLength,
   placeholder,
   helper,
 }: {
@@ -223,12 +236,13 @@ function Field({
   required?: boolean;
   defaultValue?: string | number;
   min?: number;
+  maxLength?: number;
   placeholder?: string;
   helper?: string;
 }) {
   return (
     <div>
-      <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+      <label className="mb-1 block text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
         {label}
       </label>
 
@@ -237,8 +251,9 @@ function Field({
         name={name}
         defaultValue={defaultValue ?? ""}
         min={min}
+        maxLength={maxLength}
         placeholder={placeholder}
-        className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-[12px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
+        className="h-8 w-full rounded-lg border border-slate-300 bg-white px-3 text-[11px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
         required={required}
       />
 
@@ -266,14 +281,14 @@ function SelectField({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+      <label className="mb-1 block text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
         {label}
       </label>
 
       <select
         name={name}
         defaultValue={defaultValue}
-        className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-[12px] text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
+        className="h-8 w-full rounded-lg border border-slate-300 bg-white px-3 text-[11px] text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white dark:focus:border-cyan-500/50 dark:focus:ring-cyan-500/10"
       >
         {options.map((option) => (
           <option key={`${name}-${option.value}`} value={option.value}>

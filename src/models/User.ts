@@ -30,6 +30,11 @@ const userSchema = new Schema(
       default: "activo",
       required: true,
     },
+    isProtected: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
     localidad: {
       type: String,
       default: "",
@@ -44,6 +49,13 @@ const userSchema = new Schema(
       type: Number,
       default: 1,
       min: 1,
+    },
+    tokenExpiresIn: {
+      type: String,
+      enum: ["8h", "12h", "24h", "48h", "10d", "20d", "30d", "60d"],
+      default: "30d",
+      required: true,
+      trim: true,
     },
     mustChangePassword: {
       type: Boolean,
@@ -71,6 +83,7 @@ const userSchema = new Schema(
 
 userSchema.index({ localidadId: 1 });
 userSchema.index({ rol: 1, estado: 1 });
+userSchema.index({ isProtected: 1 });
 
 const User = models.User || model("User", userSchema);
 

@@ -7,6 +7,7 @@ import {
   toggleUserStatus,
   updateUserPassword,
   resetUserPassword,
+  deleteUser,
 } from "@/services/user.service";
 import {
   createUserSchema,
@@ -82,6 +83,7 @@ function buildUserRawDataFromForm(formData: FormData) {
     localidad: String(formData.get("localidad") ?? ""),
     localidadId: String(formData.get("localidadId") ?? ""),
     conexionesPermitidas: String(formData.get("conexionesPermitidas") ?? ""),
+    tokenExpiresIn: String(formData.get("tokenExpiresIn") ?? ""),
     planId: String(formData.get("planId") ?? ""),
   };
 }
@@ -170,7 +172,7 @@ export async function createUserController(request: Request) {
 
     await createSystemLog({
       action: "USER_CREATE",
-      message: `Se creó un nuevo usuario`,
+      message: "Se creó un nuevo usuario",
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
@@ -311,13 +313,12 @@ export async function updateUserController(
       );
     }
 
-    const user = await updateUser(params.id, parsed.data);
-
     const currentUser = await requireAdminFromRequest(request);
+    const user = await updateUser(params.id, parsed.data, currentUser);
 
     await createSystemLog({
       action: "USER_UPDATE",
-      message: `Se actualizó un usuario`,
+      message: "Se actualizó un usuario",
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
@@ -379,13 +380,12 @@ export async function toggleUserStatusController(
       return guardResponse;
     }
 
-    const user = await toggleUserStatus(params.id);
-
     const currentUser = await requireAdminFromRequest(request);
+    const user = await toggleUserStatus(params.id, currentUser);
 
     await createSystemLog({
       action: "USER_TOGGLE_STATUS",
-      message: `Se cambió el estado de un usuario`,
+      message: "Se cambió el estado de un usuario",
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
@@ -500,13 +500,12 @@ export async function resetUserPasswordController(
       return guardResponse;
     }
 
-    const result = await resetUserPassword(params.id);
-
     const currentUser = await requireAdminFromRequest(request);
+    const result = await resetUserPassword(params.id, currentUser);
 
     await createSystemLog({
       action: "USER_PASSWORD_RESET",
-      message: `Se reseteó la contraseña de un usuario`,
+      message: "Se reseteó la contraseña de un usuario",
       actorId: currentUser._id,
       actorName: currentUser.nombre,
       actorEmail: currentUser.email,
@@ -527,6 +526,56 @@ export async function resetUserPasswordController(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error al resetear contraseña";
+
+    return NextResponse.redirect(
+      buildUrlFromRequest(
+        request,
+        `/users?error=${encodeURIComponent(message)}`
+      ),
+      303
+    );
+  }
+}
+
+export async function deleteUserController(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const guardResponse = handleGuardError(
+      request,
+      await requireAdminFromRequest(request).catch((error) => error)
+    );
+
+    if (guardResponse) {
+      return guardResponse;
+    }
+
+    const currentUser = await requireAdminFromRequest(request);
+    const deletedUser = await deleteUser(params.id, currentUser);
+
+    await createSystemLog({
+      action: "USER_DELETE",
+      message: "Se eliminó un usuario",
+      actorId: currentUser._id,
+      actorName: currentUser.nombre,
+      actorEmail: currentUser.email,
+      targetId: deletedUser._id,
+      targetName: deletedUser.nombre,
+      targetEmail: deletedUser.email,
+      meta: {
+        rol: deletedUser.rol,
+        estado: deletedUser.estado,
+      },
+    });
+
+    return NextResponse.redirect(
+      buildUrlFromRequest(request, "/users?success=user-deleted"),
+      303
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al eliminar usuario";
 
     return NextResponse.redirect(
       buildUrlFromRequest(

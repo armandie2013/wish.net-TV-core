@@ -11,6 +11,7 @@ export type CurrentUser = {
   rol: string;
   estado: string;
   mustChangePassword: boolean;
+  isProtected: boolean;
   localidad?: string;
   conexionesPermitidas?: number;
 };
@@ -49,7 +50,7 @@ export async function getAuthenticatedUserFromRequest(
 
   const user = await User.findById(payload.sub)
     .select(
-      "nombre email rol estado localidad conexionesPermitidas mustChangePassword"
+      "nombre email rol estado localidad conexionesPermitidas mustChangePassword isProtected"
     )
     .lean();
 
@@ -66,6 +67,7 @@ export async function getAuthenticatedUserFromRequest(
     localidad: user.localidad,
     conexionesPermitidas: user.conexionesPermitidas,
     mustChangePassword: user.mustChangePassword,
+    isProtected: Boolean(user.isProtected),
   };
 }
 
@@ -109,7 +111,7 @@ export async function requireAdminPageAccess() {
 
   const user = await User.findById(payload.sub)
     .select(
-      "nombre email rol estado localidad conexionesPermitidas mustChangePassword"
+      "nombre email rol estado localidad conexionesPermitidas mustChangePassword isProtected"
     )
     .lean();
 
@@ -138,5 +140,6 @@ export async function requireAdminPageAccess() {
     localidad: user.localidad,
     conexionesPermitidas: user.conexionesPermitidas,
     mustChangePassword: user.mustChangePassword,
+    isProtected: Boolean(user.isProtected),
   };
 }

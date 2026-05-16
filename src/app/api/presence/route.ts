@@ -3,8 +3,10 @@ import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import { verifyAuthToken } from "@/lib/auth";
 import {
+  cleanupExpiredActiveConnections,
   getClientIp,
   getDeviceId,
+  isPlaybackPresenceRequest,
   renewActiveConnection,
 } from "@/services/active-connection.service";
 
@@ -41,6 +43,8 @@ export async function POST(request: Request) {
   try {
     await connectDB();
 
+    await cleanupExpiredActiveConnections();
+
     const user = await getUserFromRequest(request);
 
     if (!user) {
@@ -72,17 +76,24 @@ export async function POST(request: Request) {
       lastSeen: new Date(),
     });
 
-    await renewActiveConnection({
-      userId,
-      deviceId,
-      ip,
-      userAgent,
-    });
+    let activeConnectionRenewed = false;
+
+    if (isPlaybackPresenceRequest(request)) {
+      const renewed = await renewActiveConnection({
+        userId,
+        deviceId,
+        ip,
+        userAgent,
+      });
+
+      activeConnectionRenewed = Boolean(renewed);
+    }
 
     return NextResponse.json({
       ok: true,
       message: "Presencia actualizada.",
       deviceId,
+      activeConnectionRenewed,
     });
   } catch (error) {
     console.error("[PRESENCE_ERROR]", error);

@@ -1,131 +1,144 @@
 import { requireAdminPageAccess } from "@/lib/auth-guards";
 import { getAllUsers } from "@/services/user.service";
+import { isProtectedAdminEmail } from "@/services/auth.service";
 import Link from "next/link";
 
-type PlanMini = {
-  _id?: string;
-  nombre?: string;
+const TOKEN_EXPIRES_IN_LABELS: Record<string, string> = {
+  "8h": "8 h",
+  "12h": "12 h",
+  "24h": "24 h",
+  "48h": "48 h",
+  "10d": "10 días",
+  "20d": "20 días",
+  "30d": "30 días",
+  "60d": "60 días",
 };
 
-type UserItem = {
-  _id: string;
-  nombre: string;
-  email: string;
-  rol: string;
-  estado: string;
-  localidad?: string | null;
-  planId?: PlanMini | null;
-  conexionesPermitidas?: number;
-};
+function isUserProtected(user: any) {
+  return Boolean(user?.isProtected) || isProtectedAdminEmail(user?.email);
+}
 
-function StateBadge({ estado }: { estado: string }) {
+function canResetPassword(currentUser: any, targetUser: any) {
+  if (String(currentUser._id) === String(targetUser._id)) return false;
+
+  if (isUserProtected(targetUser)) {
+    return (
+      Boolean(currentUser.isProtected) ||
+      isProtectedAdminEmail(currentUser.email)
+    );
+  }
+
+  return true;
+}
+
+function canToggleStatus(currentUser: any, targetUser: any) {
+  if (String(currentUser._id) === String(targetUser._id)) return false;
+  if (isUserProtected(targetUser)) return false;
+
+  return true;
+}
+
+function canDeleteUser(currentUser: any, targetUser: any) {
+  if (String(currentUser._id) === String(targetUser._id)) return false;
+  if (isUserProtected(targetUser)) return false;
+
+  return true;
+}
+
+function formatDate(value?: string | Date) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(date);
+}
+
+function getRoleBadgeClass(rol: string) {
+  if (rol === "admin") {
+    return "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200";
+  }
+
+  if (rol === "operador") {
+    return "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200";
+  }
+
+  return "border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200";
+}
+
+function getStatusBadgeClass(estado: string) {
   if (estado === "activo") {
-    return (
-      <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-        Activo
-      </span>
-    );
+    return "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200";
   }
 
-  return (
-    <span className="inline-flex rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200">
-      Suspendido
-    </span>
-  );
+  return "border-red-300 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200";
 }
 
-function RoleBadge({ rol }: { rol: string }) {
-  const normalized = String(rol || "").toLowerCase();
-
-  if (normalized === "admin") {
-    return (
-      <span className="inline-flex rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200">
-        Admin
-      </span>
-    );
-  }
-
-  if (normalized === "cliente") {
-    return (
-      <span className="inline-flex rounded-full border border-cyan-300 bg-cyan-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
-        Cliente
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
-      {rol || "—"}
-    </span>
-  );
-}
-
-function Kpi({
+function MetricCard({
   title,
   value,
-  desc,
-  tone = "neutral",
+  helper,
 }: {
   title: string;
-  value: string | number;
-  desc: string;
-  tone?: "neutral" | "cyan" | "green" | "red" | "amber" | "violet";
+  value: number;
+  helper: string;
 }) {
-  const valueClass =
-    tone === "cyan"
-      ? "text-cyan-700 dark:text-cyan-200"
-      : tone === "green"
-        ? "text-emerald-700 dark:text-emerald-200"
-        : tone === "red"
-          ? "text-red-700 dark:text-red-200"
-          : tone === "amber"
-            ? "text-amber-700 dark:text-amber-200"
-            : tone === "violet"
-              ? "text-violet-700 dark:text-violet-200"
-              : "text-slate-900 dark:text-slate-100";
-
-  const borderClass =
-    tone === "cyan"
-      ? "border-cyan-300/70 dark:border-cyan-500/20"
-      : tone === "green"
-        ? "border-emerald-300/70 dark:border-emerald-500/20"
-        : tone === "red"
-          ? "border-red-300/70 dark:border-red-500/20"
-          : tone === "amber"
-            ? "border-amber-300/70 dark:border-amber-500/20"
-            : tone === "violet"
-              ? "border-violet-300/70 dark:border-violet-500/20"
-              : "border-slate-300 dark:border-slate-800";
-
   return (
-    <div
-      className={`rounded-lg border ${borderClass} bg-white px-2 py-2 shadow-sm dark:bg-slate-900/60`}
-    >
-      <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+    <div className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-950/30">
+      <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
         {title}
-      </div>
+      </p>
 
-      <div className={`text-lg font-semibold leading-tight ${valueClass}`}>
+      <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">
         {value}
-      </div>
+      </p>
 
-      <div className="text-[10px] leading-tight text-slate-500 dark:text-slate-500">
-        {desc}
-      </div>
+      <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+        {helper}
+      </p>
     </div>
   );
 }
 
-function EmptyRow() {
+function ActionButton({
+  children,
+  tone = "neutral",
+  disabled = false,
+  type = "button",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "green" | "red" | "amber";
+  disabled?: boolean;
+  type?: "button" | "submit";
+}) {
+  const base =
+    "inline-flex h-6 min-w-[58px] items-center justify-center rounded-md border px-2 text-[10px] font-medium leading-none transition";
+
+  const toneClass =
+    tone === "green"
+      ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+      : tone === "red"
+        ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+        : tone === "amber"
+          ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+          : "border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700";
+
+  const disabledClass =
+    "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600";
+
   return (
-    <tr>
-      <td
-        colSpan={8}
-        className="px-3 py-8 text-center text-[12px] text-slate-500 dark:text-slate-400"
-      >
-        No hay usuarios registrados.
-      </td>
-    </tr>
+    <button
+      type={type}
+      disabled={disabled}
+      className={`${base} ${disabled ? disabledClass : toneClass}`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -139,37 +152,20 @@ export default async function UsersPage({
     tempPassword?: string;
   };
 }) {
-  await requireAdminPageAccess();
-
-  const users = (await getAllUsers()) as UserItem[];
-
-  const sortedUsers = [...users].sort((a, b) =>
-    String(a.nombre || "").localeCompare(String(b.nombre || ""), "es")
-  );
-
-  const totalUsers = sortedUsers.length;
-  const activeUsers = sortedUsers.filter((user) => user.estado === "activo")
-    .length;
-  const suspendedUsers = sortedUsers.filter((user) => user.estado !== "activo")
-    .length;
-  const adminUsers = sortedUsers.filter(
-    (user) => String(user.rol || "").toLowerCase() === "admin"
-  ).length;
-  const clientUsers = sortedUsers.filter(
-    (user) => String(user.rol || "").toLowerCase() === "cliente"
-  ).length;
-  const totalConnections = sortedUsers.reduce(
-    (acc, user) => acc + Number(user.conexionesPermitidas || 0),
-    0
-  );
+  const currentUser = await requireAdminPageAccess();
+  const users = await getAllUsers();
 
   const error = searchParams?.error
     ? decodeURIComponent(searchParams.error)
     : "";
 
   const success = searchParams?.success || "";
-  const createdEmail = searchParams?.email || "";
+  const email = searchParams?.email || "";
   const tempPassword = searchParams?.tempPassword || "";
+
+  const protectedUsers = users.filter((user: any) =>
+    isUserProtected(user)
+  ).length;
 
   return (
     <section className="space-y-3 text-[12px] font-normal text-slate-800 dark:text-slate-200">
@@ -178,25 +174,34 @@ export default async function UsersPage({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-blue-700 dark:text-cyan-400">
-                Usuarios
+                Administración
               </p>
 
               <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                Listado de usuarios
+                Usuarios
               </h1>
 
               <p className="mt-1 max-w-2xl text-[12px] leading-snug text-slate-500 dark:text-slate-400">
-                Visualizá y administrá las cuentas registradas, sus planes,
-                roles, localidades y conexiones permitidas.
+                Administrá cuentas, roles, estados, planes y restablecimiento
+                de contraseñas.
               </p>
             </div>
 
-            <Link
-              href="/users/new"
-              className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] font-medium text-blue-800 transition hover:bg-blue-100 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20"
-            >
-              Nuevo usuario
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-[12px] font-medium text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+              >
+                Volver
+              </Link>
+
+              <Link
+                href="/users/new"
+                className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] font-medium text-blue-800 transition hover:bg-blue-100 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20"
+              >
+                Nuevo usuario
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -204,42 +209,21 @@ export default async function UsersPage({
           <div className="space-y-2 px-3 pt-3">
             {error && (
               <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200">
-                {error}
+                {error === "datos-invalidos"
+                  ? "Revisá los datos ingresados."
+                  : error}
               </div>
             )}
 
-            {success === "user-created" && createdEmail && tempPassword && (
+            {success === "user-created" && (
               <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-                <p className="font-semibold">Usuario creado correctamente</p>
-                <p className="mt-1">
-                  Email: <span className="font-mono">{createdEmail}</span>
-                </p>
-                <p className="mt-1">
-                  Contraseña temporal:{" "}
-                  <span className="font-mono">{tempPassword}</span>
-                </p>
-                <p className="mt-1 text-[10px] opacity-80">
-                  Guardala ahora. El usuario deberá cambiarla al ingresar por
-                  primera vez.
-                </p>
-              </div>
-            )}
-
-            {success === "password-reset" && createdEmail && tempPassword && (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
-                <p className="font-semibold">
-                  Contraseña restablecida correctamente
-                </p>
-                <p className="mt-1">
-                  Email: <span className="font-mono">{createdEmail}</span>
-                </p>
-                <p className="mt-1">
-                  Nueva contraseña temporal:{" "}
-                  <span className="font-mono">{tempPassword}</span>
-                </p>
-                <p className="mt-1 text-[10px] opacity-80">
-                  El usuario deberá cambiarla en el próximo inicio de sesión.
-                </p>
+                Usuario creado correctamente.
+                {email && tempPassword ? (
+                  <span className="ml-1">
+                    Email: <strong>{email}</strong> — Contraseña temporal:{" "}
+                    <strong>{tempPassword}</strong>
+                  </span>
+                ) : null}
               </div>
             )}
 
@@ -251,179 +235,249 @@ export default async function UsersPage({
 
             {success === "status-updated" && (
               <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-                Estado del usuario actualizado correctamente.
+                Estado actualizado correctamente.
               </div>
             )}
 
-            {success === "password-updated" && (
+            {success === "password-reset" && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
+                Contraseña reseteada.
+                {email && tempPassword ? (
+                  <span className="ml-1">
+                    Email: <strong>{email}</strong> — Nueva contraseña temporal:{" "}
+                    <strong>{tempPassword}</strong>
+                  </span>
+                ) : null}
+              </div>
+            )}
+
+            {success === "user-deleted" && (
               <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-                Contraseña actualizada correctamente.
+                Usuario eliminado correctamente.
               </div>
             )}
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2 px-3 py-3 md:grid-cols-3 xl:grid-cols-6">
-          <Kpi title="Total" value={totalUsers} desc="Usuarios cargados" />
+        <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-5">
+          <MetricCard
+            title="Total usuarios"
+            value={users.length}
+            helper="Cuentas registradas"
+          />
 
-          <Kpi
+          <MetricCard
             title="Activos"
-            value={activeUsers}
-            desc="Habilitados"
-            tone="green"
+            value={users.filter((user: any) => user.estado === "activo").length}
+            helper="Pueden ingresar"
           />
 
-          <Kpi
-            title="Suspend."
-            value={suspendedUsers}
-            desc="Bloqueados"
-            tone={suspendedUsers > 0 ? "red" : "green"}
+          <MetricCard
+            title="Suspendidos"
+            value={
+              users.filter((user: any) => user.estado === "suspendido").length
+            }
+            helper="Acceso bloqueado"
           />
 
-          <Kpi title="Admins" value={adminUsers} desc="Administradores" tone="violet" />
+          <MetricCard
+            title="Clientes"
+            value={users.filter((user: any) => user.rol === "cliente").length}
+            helper="Usuarios de TV"
+          />
 
-          <Kpi title="Clientes" value={clientUsers} desc="Cuentas cliente" tone="cyan" />
-
-          <Kpi
-            title="Conex."
-            value={totalConnections}
-            desc="Permitidas"
-            tone="cyan"
+          <MetricCard
+            title="Protegidos"
+            value={protectedUsers}
+            helper="Admins críticos"
           />
         </div>
 
         <div className="px-3 pb-3">
-          <div className="max-h-[620px] overflow-auto rounded-lg border border-slate-200 dark:border-slate-800/70">
-            <table className="w-full min-w-[1120px] text-[11px]">
-              <thead className="sticky top-0 z-10 bg-slate-100 text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:bg-slate-950 dark:text-slate-400">
-                <tr>
-                  <th className="w-[210px] px-2 py-2 text-left font-medium">
-                    Usuario
-                  </th>
-                  <th className="w-[240px] px-2 py-2 text-left font-medium">
-                    Email
-                  </th>
-                  <th className="w-[90px] px-2 py-2 text-center font-medium">
-                    Rol
-                  </th>
-                  <th className="w-[110px] px-2 py-2 text-center font-medium">
-                    Estado
-                  </th>
-                  <th className="w-[150px] px-2 py-2 text-left font-medium">
-                    Localidad
-                  </th>
-                  <th className="w-[170px] px-2 py-2 text-left font-medium">
-                    Plan
-                  </th>
-                  <th className="w-[100px] px-2 py-2 text-center font-medium">
-                    Conex.
-                  </th>
-                  <th className="w-[250px] px-2 py-2 text-left font-medium">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
+          <div className="overflow-hidden rounded-lg border border-slate-300 dark:border-slate-800">
+            <div className="overflow-x-auto">
+              <table className="min-w-[1180px] w-full text-left text-[11px]">
+                <thead className="bg-slate-100 text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:bg-slate-950/60 dark:text-slate-400">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Usuario</th>
+                    <th className="px-3 py-2 font-medium">Rol</th>
+                    <th className="px-3 py-2 font-medium">Estado</th>
+                    <th className="px-3 py-2 font-medium">Localidad</th>
+                    <th className="px-3 py-2 font-medium">Plan</th>
+                    <th className="px-3 py-2 text-center font-medium">
+                      Conex.
+                    </th>
+                    <th className="px-3 py-2 font-medium">Token</th>
+                    <th className="px-3 py-2 font-medium">Creado</th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
 
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
-                {sortedUsers.length === 0 ? (
-                  <EmptyRow />
-                ) : (
-                  sortedUsers.map((user, index) => (
-                    <tr
-                      key={user._id}
-                      className={`align-top hover:bg-slate-100 dark:hover:bg-slate-800/30 ${
-                        index % 2 ? "bg-slate-50 dark:bg-slate-900/40" : ""
-                      }`}
-                    >
-                      <td className="px-2 py-2">
-                        <p
-                          className="max-w-[190px] truncate font-medium text-slate-900 dark:text-white"
-                          title={user.nombre}
-                        >
-                          {user.nombre}
-                        </p>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <p
-                          className="max-w-[220px] truncate text-[11px] text-slate-600 dark:text-slate-400"
-                          title={user.email}
-                        >
-                          {user.email}
-                        </p>
-                      </td>
-
-                      <td className="px-2 py-2 text-center">
-                        <RoleBadge rol={user.rol} />
-                      </td>
-
-                      <td className="px-2 py-2 text-center">
-                        <StateBadge estado={user.estado} />
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <span
-                          className="block max-w-[140px] truncate text-[11px] text-slate-600 dark:text-slate-400"
-                          title={user.localidad || "—"}
-                        >
-                          {user.localidad || "—"}
-                        </span>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <span
-                          className="block max-w-[160px] truncate text-[11px] text-slate-600 dark:text-slate-400"
-                          title={user.planId?.nombre || "—"}
-                        >
-                          {user.planId?.nombre || "—"}
-                        </span>
-                      </td>
-
-                      <td className="px-2 py-2 text-center">
-                        <span className="font-semibold text-slate-900 dark:text-white">
-                          {user.conexionesPermitidas ?? 0}
-                        </span>
-                      </td>
-
-                      <td className="px-2 py-2">
-                        <div className="flex max-w-[240px] flex-wrap gap-1.5">
-                          <Link
-                            href={`/users/${user._id}/edit`}
-                            className="inline-flex rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1.5 text-[11px] font-medium text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
-                          >
-                            Editar
-                          </Link>
-
-                          <Link
-                            href={`/users/${user._id}/password`}
-                            className="inline-flex rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-700 transition hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/20"
-                          >
-                            Reset
-                          </Link>
-
-                          <form
-                            action={`/api/users/${user._id}/toggle-status`}
-                            method="POST"
-                          >
-                            <button
-                              type="submit"
-                              className={`inline-flex rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
-                                user.estado === "activo"
-                                  ? "border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
-                                  : "border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
-                              }`}
-                            >
-                              {user.estado === "activo" ? "Susp." : "Activar"}
-                            </button>
-                          </form>
-                        </div>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {users.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="px-3 py-6 text-center text-slate-500 dark:text-slate-400"
+                      >
+                        No hay usuarios cargados.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    users.map((user: any) => {
+                      const protectedUser = isUserProtected(user);
+                      const resetAllowed = canResetPassword(currentUser, user);
+                      const toggleAllowed = canToggleStatus(currentUser, user);
+                      const deleteAllowed = canDeleteUser(currentUser, user);
+
+                      return (
+                        <tr
+                          key={user._id}
+                          className={`transition hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
+                            protectedUser
+                              ? "bg-violet-50/40 dark:bg-violet-950/10"
+                              : "bg-white dark:bg-slate-900/30"
+                          }`}
+                        >
+                          <td className="px-3 py-2">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="truncate text-[12px] font-medium text-slate-900 dark:text-white">
+                                  {user.nombre}
+                                </p>
+
+                                {protectedUser ? (
+                                  <span className="inline-flex rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200">
+                                    Protegido
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                {user.email}
+                              </p>
+
+                              {user.mustChangePassword ? (
+                                <p className="mt-1 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+                                  Debe cambiar contraseña
+                                </p>
+                              ) : null}
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-2">
+                            <span
+                              className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase ${getRoleBadgeClass(
+                                user.rol
+                              )}`}
+                            >
+                              {user.rol}
+                            </span>
+                          </td>
+
+                          <td className="px-3 py-2">
+                            <span
+                              className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase ${getStatusBadgeClass(
+                                user.estado
+                              )}`}
+                            >
+                              {user.estado}
+                            </span>
+                          </td>
+
+                          <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                            {user.localidadId?.nombre ||
+                              user.localidad ||
+                              "principal"}
+                          </td>
+
+                          <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                            {user.planId?.nombre || "-"}
+                          </td>
+
+                          <td className="px-3 py-2 text-center text-slate-600 dark:text-slate-300">
+                            {user.conexionesPermitidas || 1}
+                          </td>
+
+                          <td className="px-3 py-2">
+                            <span className="inline-flex rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                              {TOKEN_EXPIRES_IN_LABELS[user.tokenExpiresIn] ||
+                                user.tokenExpiresIn ||
+                                "-"}
+                            </span>
+                          </td>
+
+                          <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
+                            {formatDate(user.createdAt)}
+                          </td>
+
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1">
+                              <Link
+                                href={`/users/${user._id}/edit`}
+                                className="inline-flex h-6 min-w-[58px] items-center justify-center rounded-md border border-slate-300 bg-slate-100 px-2 text-[10px] font-medium leading-none text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+                              >
+                                Edit.
+                              </Link>
+
+                              <form
+                                action={`/api/users/${user._id}/toggle-status`}
+                                method="POST"
+                              >
+                                <ActionButton
+                                  type="submit"
+                                  disabled={!toggleAllowed}
+                                  tone={
+                                    user.estado === "activo" ? "red" : "green"
+                                  }
+                                >
+                                  {user.estado === "activo" ? "Susp." : "Act."}
+                                </ActionButton>
+                              </form>
+
+                              <form
+                                action={`/api/users/${user._id}/reset-password`}
+                                method="POST"
+                              >
+                                <ActionButton
+                                  type="submit"
+                                  disabled={!resetAllowed}
+                                  tone="amber"
+                                >
+                                  Reset
+                                </ActionButton>
+                              </form>
+
+                              <form
+                                action={`/api/users/${user._id}/delete`}
+                                method="POST"
+                              >
+                                <ActionButton
+                                  type="submit"
+                                  disabled={!deleteAllowed}
+                                  tone="red"
+                                >
+                                  Borrar
+                                </ActionButton>
+                              </form>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          <p className="mt-2 text-[10px] leading-snug text-slate-500 dark:text-slate-500">
+            Los usuarios protegidos no pueden borrarse ni suspenderse. Su
+            contraseña solo puede ser restablecida por otro administrador
+            protegido.
+          </p>
         </div>
       </div>
     </section>
