@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
-import { ensureDatabaseIndexes } from "@/lib/ensure-database-indexes";
+import { ensureDatabaseIndexes } from "./ensure-database-indexes";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
   throw new Error("Falta la variable de entorno MONGODB_URI");
 }
+
+const mongoUri: string = MONGODB_URI;
 
 type MongooseCache = {
   conn: typeof mongoose | null;
@@ -31,7 +33,7 @@ export async function connectDB() {
   }
 
   if (!globalCache.promise) {
-    globalCache.promise = mongoose.connect(MONGODB_URI, {
+    globalCache.promise = mongoose.connect(mongoUri, {
       dbName: "wishnet_tv_core",
     });
   }
