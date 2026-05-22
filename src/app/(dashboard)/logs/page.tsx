@@ -1,6 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  AlertBox,
+  DashboardHeader,
+  DashboardPanel,
+  DashboardSection,
+  EmptyTableRow,
+  KpiCard,
+  StatusBadge,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableShell,
+} from "@/components/ui/dashboard-ui";
 
 type LogItem = {
   _id: string;
@@ -13,106 +26,65 @@ type LogItem = {
   createdAt: string | null;
 };
 
-function ActionBadge({ action }: { action: string }) {
+function getActionTone(action: string) {
   const normalized = String(action || "").toLowerCase();
 
-  const tone =
+  if (
     normalized.includes("delete") ||
     normalized.includes("suspend") ||
     normalized.includes("error")
-      ? "red"
-      : normalized.includes("create") ||
-          normalized.includes("login") ||
-          normalized.includes("import")
-        ? "green"
-        : normalized.includes("update") ||
-            normalized.includes("reset") ||
-            normalized.includes("password")
-          ? "amber"
-          : "cyan";
+  ) {
+    return "red";
+  }
 
-  const cls =
-    tone === "green"
-      ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200"
-      : tone === "red"
-        ? "border-red-300 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200"
-        : tone === "amber"
-          ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
-          : "border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200";
+  if (
+    normalized.includes("create") ||
+    normalized.includes("login") ||
+    normalized.includes("import")
+  ) {
+    return "green";
+  }
 
-  return (
-    <span
-      className={`inline-flex max-w-[140px] rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase leading-none ${cls}`}
-      title={action}
-    >
-      <span className="truncate">{action || "—"}</span>
-    </span>
-  );
+  if (
+    normalized.includes("update") ||
+    normalized.includes("reset") ||
+    normalized.includes("password") ||
+    normalized.includes("toggle")
+  ) {
+    return "amber";
+  }
+
+  return "cyan";
 }
 
-function Kpi({
-  title,
-  value,
-  desc,
-  tone = "neutral",
-}: {
-  title: string;
-  value: string | number;
-  desc: string;
-  tone?: "neutral" | "cyan" | "green" | "red" | "amber";
-}) {
-  const valueClass =
-    tone === "cyan"
-      ? "text-cyan-700 dark:text-cyan-200"
-      : tone === "green"
-        ? "text-emerald-700 dark:text-emerald-200"
-        : tone === "red"
-          ? "text-red-700 dark:text-red-200"
-          : tone === "amber"
-            ? "text-amber-700 dark:text-amber-200"
-            : "text-slate-900 dark:text-slate-100";
+function formatDate(value?: string | null) {
+  if (!value) return "—";
 
-  const borderClass =
-    tone === "cyan"
-      ? "border-cyan-300/70 dark:border-cyan-500/20"
-      : tone === "green"
-        ? "border-emerald-300/70 dark:border-emerald-500/20"
-        : tone === "red"
-          ? "border-red-300/70 dark:border-red-500/20"
-          : tone === "amber"
-            ? "border-amber-300/70 dark:border-amber-500/20"
-            : "border-slate-300 dark:border-slate-800";
+  const date = new Date(value);
 
-  return (
-    <div
-      className={`rounded-lg border ${borderClass} bg-white px-2 py-2 shadow-sm dark:bg-slate-900/60`}
-    >
-      <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-        {title}
-      </div>
+  if (Number.isNaN(date.getTime())) return "—";
 
-      <div className={`text-lg font-semibold leading-tight ${valueClass}`}>
-        {value}
-      </div>
-
-      <div className="text-[10px] leading-tight text-slate-500 dark:text-slate-500">
-        {desc}
-      </div>
-    </div>
-  );
+  return new Intl.DateTimeFormat("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
-function EmptyRow() {
-  return (
-    <tr>
-      <td
-        colSpan={5}
-        className="px-3 py-8 text-center text-[12px] text-slate-500 dark:text-slate-400"
-      >
-        Todavía no hay logs registrados.
-      </td>
-    </tr>
-  );
+function compactAction(action: string) {
+  const value = String(action || "—");
+
+  if (value === "STREAMING_NODE_TOGGLE_STATUS") return "NODE_STATUS";
+  if (value === "LOCATION_TOGGLE_STATUS") return "LOC_STATUS";
+  if (value === "AUTH_LOGIN") return "LOGIN";
+  if (value === "USER_RESET_PASSWORD") return "RESET_PASS";
+  if (value === "USER_TOGGLE_STATUS") return "USER_STATUS";
+  if (value === "CHANNEL_TOGGLE_STATUS") return "CH_STATUS";
+  if (value === "PLAN_TOGGLE_STATUS") return "PLAN_STATUS";
+
+  return value;
 }
 
 export default function LogsPage() {
@@ -182,49 +154,45 @@ export default function LogsPage() {
   }, [logs]);
 
   return (
-    <section className="space-y-3 text-[12px] font-normal text-slate-800 dark:text-slate-200">
-      <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-        <div className="border-b border-slate-200 px-3 py-3 dark:border-slate-800">
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-blue-700 dark:text-cyan-400">
-              Logs
-            </p>
-
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-              Logs del sistema
-            </h1>
-
-            <p className="mt-1 max-w-2xl text-[12px] leading-snug text-slate-500 dark:text-slate-400">
-              Últimos eventos registrados en la plataforma. La vista se actualiza
-              automáticamente cada 30 segundos.
-            </p>
-          </div>
-        </div>
+    <DashboardSection>
+      <DashboardPanel>
+        <DashboardHeader
+          eyebrow="Logs"
+          title="Logs del sistema"
+          description="Últimos eventos registrados en la plataforma. La vista se actualiza automáticamente cada 30 segundos."
+        />
 
         {error && (
-          <div className="mx-3 mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200">
-            {error}
+          <div className="px-3 pt-3">
+            <AlertBox tone="red">{error}</AlertBox>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2 px-3 py-3 md:grid-cols-4">
-          <Kpi title="Total" value={stats.total} desc="Eventos cargados" />
+        <div className="grid grid-cols-5 gap-2 px-3 py-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+          <KpiCard title="Total" value={stats.total} desc="Eventos cargados" />
 
-          <Kpi
+          <KpiCard
             title="Usuarios"
             value={stats.withActor}
             desc="Con actor"
             tone="cyan"
           />
 
-          <Kpi
+          <KpiCard
             title="Sistema"
             value={stats.system}
             desc="Eventos internos"
             tone="amber"
           />
 
-          <Kpi
+          <KpiCard
+            title="Destino"
+            value={stats.withTarget}
+            desc="Con objetivo"
+            tone="violet"
+          />
+
+          <KpiCard
             title="Último"
             value={stats.lastLog}
             desc="Evento recibido"
@@ -233,107 +201,84 @@ export default function LogsPage() {
         </div>
 
         <div className="px-3 pb-3">
-          <div className="max-h-[620px] overflow-auto rounded-lg border border-slate-200 dark:border-slate-800/70">
-            <table className="w-full min-w-[980px] text-[11px]">
-              <thead className="sticky top-0 z-10 bg-slate-100 text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:bg-slate-950 dark:text-slate-400">
-                <tr>
-                  <th className="w-[150px] px-2 py-2 text-left font-medium">
-                    Fecha
-                  </th>
-                  <th className="w-[160px] px-2 py-2 text-left font-medium">
-                    Acción
-                  </th>
-                  <th className="w-[210px] px-2 py-2 text-left font-medium">
-                    Actor
-                  </th>
-                  <th className="w-[210px] px-2 py-2 text-left font-medium">
-                    Destino
-                  </th>
-                  <th className="px-2 py-2 text-left font-medium">Mensaje</th>
-                </tr>
-              </thead>
+          <TableShell minWidth="min-w-[1080px]" maxHeight="max-h-[690px]">
+            <TableHead>
+              <tr>
+                <th className="w-[130px] px-2 py-2 text-left font-medium">
+                  Fecha
+                </th>
 
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
-                {logs.length === 0 ? (
-                  <EmptyRow />
-                ) : (
-                  logs.map((log, index) => (
-                    <tr
-                      key={log._id}
-                      className={`align-top hover:bg-slate-100 dark:hover:bg-slate-800/30 ${
-                        index % 2 ? "bg-slate-50 dark:bg-slate-900/40" : ""
-                      }`}
-                    >
-                      <td className="whitespace-nowrap px-2 py-2 text-[11px] text-slate-600 dark:text-slate-400">
-                        {formatDate(log.createdAt)}
-                      </td>
+                <th className="w-[130px] px-2 py-2 text-left font-medium">
+                  Acción
+                </th>
 
-                      <td className="px-2 py-2">
-                        <ActionBadge action={log.action} />
-                      </td>
+                <th className="w-[210px] px-2 py-2 text-left font-medium">
+                  Actor
+                </th>
 
-                      <td className="px-2 py-2">
-                        <p
-                          className="max-w-[190px] truncate font-medium text-slate-900 dark:text-white"
-                          title={log.actorName || "Sistema"}
-                        >
-                          {log.actorName || "Sistema"}
-                        </p>
-                        <p
-                          className="max-w-[190px] truncate text-[10px] text-slate-500 dark:text-slate-400"
-                          title={log.actorEmail || "—"}
-                        >
-                          {log.actorEmail || "—"}
-                        </p>
-                      </td>
+                <th className="w-[190px] px-2 py-2 text-left font-medium">
+                  Destino
+                </th>
 
-                      <td className="px-2 py-2">
-                        <p
-                          className="max-w-[190px] truncate font-medium text-slate-900 dark:text-white"
-                          title={log.targetName || "—"}
-                        >
-                          {log.targetName || "—"}
-                        </p>
-                        <p
-                          className="max-w-[190px] truncate text-[10px] text-slate-500 dark:text-slate-400"
-                          title={log.targetEmail || "—"}
-                        >
-                          {log.targetEmail || "—"}
-                        </p>
-                      </td>
+                <th className="px-2 py-2 text-left font-medium">Mensaje</th>
+              </tr>
+            </TableHead>
 
-                      <td className="px-2 py-2">
-                        <p
-                          className="line-clamp-2 text-[11px] leading-snug text-slate-700 dark:text-slate-300"
-                          title={log.message}
-                        >
-                          {log.message || "—"}
-                        </p>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+            <TableBody>
+              {logs.length === 0 ? (
+                <EmptyTableRow colSpan={5}>
+                  Todavía no hay logs registrados.
+                </EmptyTableRow>
+              ) : (
+                logs.map((log, index) => (
+                  <TableRow key={log._id} index={index} align="top">
+                    <td className="px-2 py-2 text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+                      {formatDate(log.createdAt)}
+                    </td>
+
+                    <td className="px-2 py-2">
+                      <StatusBadge
+                        tone={getActionTone(log.action) as any}
+                        className="h-5 max-w-[110px]"
+                      >
+                        <span className="truncate">
+                          {compactAction(log.action)}
+                        </span>
+                      </StatusBadge>
+                    </td>
+
+                    <td className="px-2 py-2">
+                      <p className="max-w-[190px] truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                        {log.actorName || "Sistema"}
+                      </p>
+
+                      <p className="max-w-[190px] truncate text-[10px] text-slate-500 dark:text-slate-500">
+                        {log.actorEmail || "—"}
+                      </p>
+                    </td>
+
+                    <td className="px-2 py-2">
+                      <p className="max-w-[170px] truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                        {log.targetName || "—"}
+                      </p>
+
+                      <p className="max-w-[170px] truncate text-[10px] text-slate-500 dark:text-slate-500">
+                        {log.targetEmail || "—"}
+                      </p>
+                    </td>
+
+                    <td className="px-2 py-2">
+                      <p className="line-clamp-2 text-[11px] leading-snug text-slate-600 dark:text-slate-400">
+                        {log.message || "—"}
+                      </p>
+                    </td>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </TableShell>
         </div>
-      </div>
-    </section>
+      </DashboardPanel>
+    </DashboardSection>
   );
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "—";
-
-  return date.toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
