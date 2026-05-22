@@ -1,7 +1,23 @@
 import { requireAdminPageAccess } from "@/lib/auth-guards";
 import { getAllUsers } from "@/services/user.service";
 import { isProtectedAdminEmail } from "@/services/auth.service";
-import Link from "next/link";
+import {
+  ActionButton,
+  ActionLink,
+  AlertBox,
+  CodeBadge,
+  DashboardFooterNote,
+  DashboardHeader,
+  DashboardPanel,
+  DashboardSection,
+  EmptyTableRow,
+  KpiCard,
+  StatusBadge,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableShell,
+} from "@/components/ui/dashboard-ui";
 
 const TOKEN_EXPIRES_IN_LABELS: Record<string, string> = {
   "8h": "8 h",
@@ -46,11 +62,11 @@ function canDeleteUser(currentUser: any, targetUser: any) {
 }
 
 function formatDate(value?: string | Date) {
-  if (!value) return "-";
+  if (!value) return "—";
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return "-";
+  if (Number.isNaN(date.getTime())) return "—";
 
   return new Intl.DateTimeFormat("es-AR", {
     day: "2-digit",
@@ -59,87 +75,10 @@ function formatDate(value?: string | Date) {
   }).format(date);
 }
 
-function getRoleBadgeClass(rol: string) {
-  if (rol === "admin") {
-    return "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200";
-  }
-
-  if (rol === "operador") {
-    return "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200";
-  }
-
-  return "border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200";
-}
-
-function getStatusBadgeClass(estado: string) {
-  if (estado === "activo") {
-    return "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200";
-  }
-
-  return "border-red-300 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200";
-}
-
-function MetricCard({
-  title,
-  value,
-  helper,
-}: {
-  title: string;
-  value: number;
-  helper: string;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-950/30">
-      <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-        {title}
-      </p>
-
-      <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">
-        {value}
-      </p>
-
-      <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-        {helper}
-      </p>
-    </div>
-  );
-}
-
-function ActionButton({
-  children,
-  tone = "neutral",
-  disabled = false,
-  type = "button",
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "green" | "red" | "amber";
-  disabled?: boolean;
-  type?: "button" | "submit";
-}) {
-  const base =
-    "inline-flex h-6 min-w-[58px] items-center justify-center rounded-md border px-2 text-[10px] font-medium leading-none transition";
-
-  const toneClass =
-    tone === "green"
-      ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
-      : tone === "red"
-        ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
-        : tone === "amber"
-          ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
-          : "border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700";
-
-  const disabledClass =
-    "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600";
-
-  return (
-    <button
-      type={type}
-      disabled={disabled}
-      className={`${base} ${disabled ? disabledClass : toneClass}`}
-    >
-      {children}
-    </button>
-  );
+function getRoleTone(rol: string) {
+  if (rol === "admin") return "violet";
+  if (rol === "operador") return "blue";
+  return "cyan";
 }
 
 export default async function UsersPage({
@@ -167,56 +106,38 @@ export default async function UsersPage({
     isUserProtected(user)
   ).length;
 
+  const activeUsers = users.filter((user: any) => user.estado === "activo")
+    .length;
+
+  const suspendedUsers = users.filter(
+    (user: any) => user.estado === "suspendido"
+  ).length;
+
+  const clientUsers = users.filter((user: any) => user.rol === "cliente").length;
+
   return (
-    <section className="space-y-3 text-[12px] font-normal text-slate-800 dark:text-slate-200">
-      <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-        <div className="border-b border-slate-200 px-3 py-3 dark:border-slate-800">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-blue-700 dark:text-cyan-400">
-                Administración
-              </p>
-
-              <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                Usuarios
-              </h1>
-
-              <p className="mt-1 max-w-2xl text-[12px] leading-snug text-slate-500 dark:text-slate-400">
-                Administrá cuentas, roles, estados, planes y restablecimiento
-                de contraseñas.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-[12px] font-medium text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
-              >
-                Volver
-              </Link>
-
-              <Link
-                href="/users/new"
-                className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] font-medium text-blue-800 transition hover:bg-blue-100 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20"
-              >
-                Nuevo usuario
-              </Link>
-            </div>
-          </div>
-        </div>
+    <DashboardSection>
+      <DashboardPanel>
+        <DashboardHeader
+          eyebrow="Administración"
+          title="Usuarios"
+          description="Administrá cuentas, roles, estados, planes y restablecimiento de contraseñas."
+          actionHref="/users/new"
+          actionLabel="Nuevo usuario"
+        />
 
         {(error || success) && (
           <div className="space-y-2 px-3 pt-3">
             {error && (
-              <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200">
+              <AlertBox tone="red">
                 {error === "datos-invalidos"
                   ? "Revisá los datos ingresados."
                   : error}
-              </div>
+              </AlertBox>
             )}
 
             {success === "user-created" && (
-              <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+              <AlertBox>
                 Usuario creado correctamente.
                 {email && tempPassword ? (
                   <span className="ml-1">
@@ -224,23 +145,19 @@ export default async function UsersPage({
                     <strong>{tempPassword}</strong>
                   </span>
                 ) : null}
-              </div>
+              </AlertBox>
             )}
 
             {success === "user-updated" && (
-              <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-                Usuario actualizado correctamente.
-              </div>
+              <AlertBox>Usuario actualizado correctamente.</AlertBox>
             )}
 
             {success === "status-updated" && (
-              <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-                Estado actualizado correctamente.
-              </div>
+              <AlertBox>Estado actualizado correctamente.</AlertBox>
             )}
 
             {success === "password-reset" && (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
+              <AlertBox tone="amber">
                 Contraseña reseteada.
                 {email && tempPassword ? (
                   <span className="ml-1">
@@ -248,238 +165,242 @@ export default async function UsersPage({
                     <strong>{tempPassword}</strong>
                   </span>
                 ) : null}
-              </div>
+              </AlertBox>
             )}
 
             {success === "user-deleted" && (
-              <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-                Usuario eliminado correctamente.
-              </div>
+              <AlertBox>Usuario eliminado correctamente.</AlertBox>
             )}
           </div>
         )}
 
-        <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-5">
-          <MetricCard
-            title="Total usuarios"
+        <div className="grid grid-cols-2 gap-2 px-3 py-3 md:grid-cols-3 xl:grid-cols-5">
+          <KpiCard
+            title="Total"
             value={users.length}
-            helper="Cuentas registradas"
+            desc="Cuentas registradas"
           />
 
-          <MetricCard
+          <KpiCard
             title="Activos"
-            value={users.filter((user: any) => user.estado === "activo").length}
-            helper="Pueden ingresar"
+            value={activeUsers}
+            desc="Pueden ingresar"
+            tone="green"
           />
 
-          <MetricCard
-            title="Suspendidos"
-            value={
-              users.filter((user: any) => user.estado === "suspendido").length
-            }
-            helper="Acceso bloqueado"
+          <KpiCard
+            title="Suspend."
+            value={suspendedUsers}
+            desc="Acceso bloqueado"
+            tone={suspendedUsers > 0 ? "red" : "green"}
           />
 
-          <MetricCard
+          <KpiCard
             title="Clientes"
-            value={users.filter((user: any) => user.rol === "cliente").length}
-            helper="Usuarios de TV"
+            value={clientUsers}
+            desc="Usuarios de TV"
+            tone="cyan"
           />
 
-          <MetricCard
+          <KpiCard
             title="Protegidos"
             value={protectedUsers}
-            helper="Admins críticos"
+            desc="Admins críticos"
+            tone={protectedUsers > 0 ? "violet" : "neutral"}
           />
         </div>
 
         <div className="px-3 pb-3">
-          <div className="overflow-hidden rounded-lg border border-slate-300 dark:border-slate-800">
-            <div className="overflow-x-auto">
-              <table className="min-w-[1180px] w-full text-left text-[11px]">
-                <thead className="bg-slate-100 text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:bg-slate-950/60 dark:text-slate-400">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Usuario</th>
-                    <th className="px-3 py-2 font-medium">Rol</th>
-                    <th className="px-3 py-2 font-medium">Estado</th>
-                    <th className="px-3 py-2 font-medium">Localidad</th>
-                    <th className="px-3 py-2 font-medium">Plan</th>
-                    <th className="px-3 py-2 text-center font-medium">
-                      Conex.
-                    </th>
-                    <th className="px-3 py-2 font-medium">Token</th>
-                    <th className="px-3 py-2 font-medium">Creado</th>
-                    <th className="px-3 py-2 text-right font-medium">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
+          <TableShell minWidth="min-w-[1180px]">
+            <TableHead>
+              <tr>
+                <th className="w-[260px] px-3 py-2 text-left font-medium">
+                  Usuario
+                </th>
 
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {users.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={9}
-                        className="px-3 py-6 text-center text-slate-500 dark:text-slate-400"
-                      >
-                        No hay usuarios cargados.
+                <th className="w-[110px] px-3 py-2 text-left font-medium">
+                  Rol
+                </th>
+
+                <th className="w-[120px] px-3 py-2 text-left font-medium">
+                  Estado
+                </th>
+
+                <th className="w-[160px] px-3 py-2 text-left font-medium">
+                  Localidad
+                </th>
+
+                <th className="w-[160px] px-3 py-2 text-left font-medium">
+                  Plan
+                </th>
+
+                <th className="w-[80px] px-3 py-2 text-center font-medium">
+                  Conex.
+                </th>
+
+                <th className="w-[90px] px-3 py-2 text-center font-medium">
+                  Token
+                </th>
+
+                <th className="w-[90px] px-3 py-2 text-left font-medium">
+                  Creado
+                </th>
+
+                <th className="w-[250px] px-3 py-2 text-center font-medium">
+                  Acciones
+                </th>
+              </tr>
+            </TableHead>
+
+            <TableBody>
+              {users.length === 0 ? (
+                <EmptyTableRow colSpan={9}>
+                  No hay usuarios cargados.
+                </EmptyTableRow>
+              ) : (
+                users.map((user: any, index: number) => {
+                  const protectedUser = isUserProtected(user);
+                  const resetAllowed = canResetPassword(currentUser, user);
+                  const toggleAllowed = canToggleStatus(currentUser, user);
+                  const deleteAllowed = canDeleteUser(currentUser, user);
+                  const isActive = user.estado === "activo";
+
+                  return (
+                    <TableRow key={user._id} index={index}>
+                      <td className="px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="max-w-[170px] truncate text-[12px] font-semibold text-slate-900 dark:text-white">
+                              {user.nombre}
+                            </p>
+
+                            {protectedUser ? (
+                              <StatusBadge tone="violet">Protegido</StatusBadge>
+                            ) : null}
+                          </div>
+
+                          <p className="max-w-[220px] truncate text-[11px] text-slate-500 dark:text-slate-400">
+                            {user.email}
+                          </p>
+
+                          {user.mustChangePassword ? (
+                            <div className="mt-1">
+                              <StatusBadge tone="amber" className="h-5">
+                                Cambiar contraseña
+                              </StatusBadge>
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
-                    </tr>
-                  ) : (
-                    users.map((user: any) => {
-                      const protectedUser = isUserProtected(user);
-                      const resetAllowed = canResetPassword(currentUser, user);
-                      const toggleAllowed = canToggleStatus(currentUser, user);
-                      const deleteAllowed = canDeleteUser(currentUser, user);
 
-                      return (
-                        <tr
-                          key={user._id}
-                          className={`transition hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
-                            protectedUser
-                              ? "bg-violet-50/40 dark:bg-violet-950/10"
-                              : "bg-white dark:bg-slate-900/30"
-                          }`}
+                      <td className="px-3 py-2">
+                        <StatusBadge
+                          tone={getRoleTone(user.rol) as any}
+                          className="w-[82px]"
                         >
-                          <td className="px-3 py-2">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <p className="truncate text-[12px] font-medium text-slate-900 dark:text-white">
-                                  {user.nombre}
-                                </p>
+                          {user.rol}
+                        </StatusBadge>
+                      </td>
 
-                                {protectedUser ? (
-                                  <span className="inline-flex rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200">
-                                    Protegido
-                                  </span>
-                                ) : null}
-                              </div>
+                      <td className="px-3 py-2">
+                        <StatusBadge
+                          tone={isActive ? "green" : "red"}
+                          className="w-[92px]"
+                        >
+                          {user.estado}
+                        </StatusBadge>
+                      </td>
 
-                              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
-                                {user.email}
-                              </p>
+                      <td className="px-3 py-2">
+                        <span className="block max-w-[140px] truncate text-[11px] text-slate-600 dark:text-slate-300">
+                          {user.localidadId?.nombre ||
+                            user.localidad ||
+                            "principal"}
+                        </span>
+                      </td>
 
-                              {user.mustChangePassword ? (
-                                <p className="mt-1 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
-                                  Debe cambiar contraseña
-                                </p>
-                              ) : null}
-                            </div>
-                          </td>
+                      <td className="px-3 py-2">
+                        <span className="block max-w-[140px] truncate text-[11px] text-slate-600 dark:text-slate-300">
+                          {user.planId?.nombre || "—"}
+                        </span>
+                      </td>
 
-                          <td className="px-3 py-2">
-                            <span
-                              className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase ${getRoleBadgeClass(
-                                user.rol
-                              )}`}
+                      <td className="px-3 py-2 text-center">
+                        <CodeBadge>{user.conexionesPermitidas || 1}</CodeBadge>
+                      </td>
+
+                      <td className="px-3 py-2 text-center">
+                        <CodeBadge>
+                          {TOKEN_EXPIRES_IN_LABELS[user.tokenExpiresIn] ||
+                            user.tokenExpiresIn ||
+                            "—"}
+                        </CodeBadge>
+                      </td>
+
+                      <td className="px-3 py-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        {formatDate(user.createdAt)}
+                      </td>
+
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-center gap-1">
+                          <ActionLink href={`/users/${user._id}/edit`}>
+                            Edit.
+                          </ActionLink>
+
+                          <form
+                            action={`/api/users/${user._id}/toggle-status`}
+                            method="POST"
+                          >
+                            <ActionButton
+                              type="submit"
+                              disabled={!toggleAllowed}
+                              tone={isActive ? "red" : "green"}
                             >
-                              {user.rol}
-                            </span>
-                          </td>
+                              {isActive ? "Susp." : "Act."}
+                            </ActionButton>
+                          </form>
 
-                          <td className="px-3 py-2">
-                            <span
-                              className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase ${getStatusBadgeClass(
-                                user.estado
-                              )}`}
+                          <form
+                            action={`/api/users/${user._id}/reset-password`}
+                            method="POST"
+                          >
+                            <ActionButton
+                              type="submit"
+                              disabled={!resetAllowed}
+                              tone="amber"
                             >
-                              {user.estado}
-                            </span>
-                          </td>
+                              Reset
+                            </ActionButton>
+                          </form>
 
-                          <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
-                            {user.localidadId?.nombre ||
-                              user.localidad ||
-                              "principal"}
-                          </td>
+                          <form
+                            action={`/api/users/${user._id}/delete`}
+                            method="POST"
+                          >
+                            <ActionButton
+                              type="submit"
+                              disabled={!deleteAllowed}
+                              tone="red"
+                            >
+                              Borrar
+                            </ActionButton>
+                          </form>
+                        </div>
+                      </td>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </TableShell>
 
-                          <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
-                            {user.planId?.nombre || "-"}
-                          </td>
-
-                          <td className="px-3 py-2 text-center text-slate-600 dark:text-slate-300">
-                            {user.conexionesPermitidas || 1}
-                          </td>
-
-                          <td className="px-3 py-2">
-                            <span className="inline-flex rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                              {TOKEN_EXPIRES_IN_LABELS[user.tokenExpiresIn] ||
-                                user.tokenExpiresIn ||
-                                "-"}
-                            </span>
-                          </td>
-
-                          <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
-                            {formatDate(user.createdAt)}
-                          </td>
-
-                          <td className="px-3 py-2">
-                            <div className="flex flex-wrap items-center justify-end gap-1">
-                              <Link
-                                href={`/users/${user._id}/edit`}
-                                className="inline-flex h-6 min-w-[58px] items-center justify-center rounded-md border border-slate-300 bg-slate-100 px-2 text-[10px] font-medium leading-none text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
-                              >
-                                Edit.
-                              </Link>
-
-                              <form
-                                action={`/api/users/${user._id}/toggle-status`}
-                                method="POST"
-                              >
-                                <ActionButton
-                                  type="submit"
-                                  disabled={!toggleAllowed}
-                                  tone={
-                                    user.estado === "activo" ? "red" : "green"
-                                  }
-                                >
-                                  {user.estado === "activo" ? "Susp." : "Act."}
-                                </ActionButton>
-                              </form>
-
-                              <form
-                                action={`/api/users/${user._id}/reset-password`}
-                                method="POST"
-                              >
-                                <ActionButton
-                                  type="submit"
-                                  disabled={!resetAllowed}
-                                  tone="amber"
-                                >
-                                  Reset
-                                </ActionButton>
-                              </form>
-
-                              <form
-                                action={`/api/users/${user._id}/delete`}
-                                method="POST"
-                              >
-                                <ActionButton
-                                  type="submit"
-                                  disabled={!deleteAllowed}
-                                  tone="red"
-                                >
-                                  Borrar
-                                </ActionButton>
-                              </form>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <p className="mt-2 text-[10px] leading-snug text-slate-500 dark:text-slate-500">
+          <DashboardFooterNote>
             Los usuarios protegidos no pueden borrarse ni suspenderse. Su
             contraseña solo puede ser restablecida por otro administrador
             protegido.
-          </p>
+          </DashboardFooterNote>
         </div>
-      </div>
-    </section>
+      </DashboardPanel>
+    </DashboardSection>
   );
 }

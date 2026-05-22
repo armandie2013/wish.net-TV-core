@@ -35,12 +35,10 @@ export default async function LoginPage({
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-slate-100 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
-      {/* Grid técnico suave */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.35]">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:40px_40px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:40px_40px] dark:bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)]" />
       </div>
 
-      {/* Glows */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[-120px] top-[-120px] h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl dark:bg-cyan-500/10" />
         <div className="absolute bottom-[-120px] right-[-120px] h-80 w-80 rounded-full bg-blue-300/20 blur-3xl dark:bg-blue-600/10" />
@@ -53,7 +51,6 @@ export default async function LoginPage({
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-6">
         <div className="w-full max-w-md">
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-[0_20px_60px_-15px_rgba(15,23,42,0.18)] backdrop-blur-sm transition-colors dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-[0_0_40px_rgba(0,0,0,0.6)] sm:p-8">
-            {/* Header técnico */}
             <div className="mb-6 text-center">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-cyan-700 dark:text-cyan-400">
@@ -66,33 +63,29 @@ export default async function LoginPage({
               </div>
 
               <h1
-                className="mt-4 text-2xl font-bold tracking-tight text-slate-900 dark:text-white text-center"
+                className="mt-4 text-center text-2xl font-bold tracking-tight text-slate-900 dark:text-white"
                 title={settings.nombreEmpresa}
               >
                 {settings.nombreEmpresa}
               </h1>
 
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 text-center">
+              <p className="mt-1 text-center text-sm text-slate-600 dark:text-slate-400">
                 Iniciar sesión en el panel administrativo
               </p>
             </div>
 
-            {/* Formulario */}
-            <form
-              action="/api/auth/login"
-              method="POST"
-              className="space-y-4"
-            >
+            <form action="/api/auth/login" method="POST" className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Email
                 </label>
+
                 <input
                   type="email"
                   name="email"
                   autoComplete="email"
                   placeholder="user@system.local"
-                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-600 focus:bg-white focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-800 dark:bg-slate-950 dark:focus:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-500/20"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-600 focus:bg-white focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:bg-slate-900 dark:focus:ring-cyan-500/20"
                   required
                 />
               </div>
@@ -101,12 +94,13 @@ export default async function LoginPage({
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Password
                 </label>
+
                 <input
                   type="password"
                   name="password"
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-600 focus:bg-white focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-800 dark:bg-slate-950 dark:focus:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:ring-cyan-500/20"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-600 focus:bg-white focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-cyan-500 dark:focus:bg-slate-900 dark:focus:ring-cyan-500/20"
                   required
                 />
               </div>
@@ -131,7 +125,6 @@ export default async function LoginPage({
               )}
             </form>
 
-            {/* Footer técnico */}
             <div className="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-500">
               <div className="flex items-center justify-between">
                 <span>Node: CATAMARCA-CORE</span>

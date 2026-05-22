@@ -1,477 +1,388 @@
-import Link from "next/link";
 import { requireAdminPageAccess } from "@/lib/auth-guards";
 import { getAllStreamingNodes } from "@/services/streaming.service";
+import {
+  ActionButton,
+  ActionLink,
+  AlertBox,
+  CodeBadge,
+  DashboardFooterNote,
+  DashboardHeader,
+  DashboardPanel,
+  DashboardSection,
+  EmptyTableRow,
+  KpiCard,
+  StatusBadge,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableShell,
+} from "@/components/ui/dashboard-ui";
 
-type StreamingNode = {
+type StreamingNodeItem = {
   _id: string;
   nombre: string;
   codigo: string;
-  tipo: "origin" | "edge" | string;
-  urlBase?: string;
+  tipo: "origin" | "edge";
   host?: string;
   puerto?: number;
+  urlBase?: string;
+  estado: "activo" | "suspendido";
+  habilitado?: boolean;
+  prioridad?: number;
+  healthStatus?: "online" | "offline" | "unknown";
   healthCheckPath?: string;
-  healthStatus?: "unknown" | "online" | "offline" | string;
+  healthTimeoutMs?: number;
   lastCheckAt?: string | Date | null;
   lastSeenAt?: string | Date | null;
   failureCount?: number;
-  lastError?: string | null;
-  prioridad?: number;
-  estado: string;
-  habilitado?: boolean;
-  healthTimeoutMs?: number;
-  observaciones?: string | null;
+  lastError?: string;
 };
 
-function formatDate(value?: string | Date | null) {
+function formatDateTime(value?: string | Date | null) {
   if (!value) return "—";
 
-  try {
-    return new Date(value).toLocaleString("es-AR", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function buildHostLabel(node: StreamingNodeItem) {
+  if (node.host && node.puerto) {
+    return `${node.host}:${node.puerto}`;
+  }
+
+  if (node.urlBase) {
+    try {
+      const url = new URL(node.urlBase);
+      return `${url.hostname}${url.port ? `:${url.port}` : ""}`;
+    } catch {
+      return node.urlBase.replace(/^https?:\/\//, "");
+    }
+  }
+
+  return "—";
+}
+
+function buildUrlLabel(node: StreamingNodeItem) {
+  if (node.urlBase) return node.urlBase;
+
+  if (node.host && node.puerto) {
+    return `http://${node.host}:${node.puerto}`;
+  }
+
+  return "—";
+}
+
+function getHealthLabel(status?: string) {
+  if (status === "online") return "Online";
+  if (status === "offline") return "Offline";
+  return "Unknown";
+}
+
+function sortStreamingNodes(nodes: StreamingNodeItem[]) {
+  return [...nodes].sort((a, b) => {
+    const tipoA = a.tipo === "origin" ? 0 : 1;
+    const tipoB = b.tipo === "origin" ? 0 : 1;
+
+    if (tipoA !== tipoB) return tipoA - tipoB;
+
+    const nombreA = a.nombre || "";
+    const nombreB = b.nombre || "";
+
+    const byName = nombreA.localeCompare(nombreB, "es", {
+      sensitivity: "base",
+      numeric: true,
     });
-  } catch {
-    return "—";
-  }
+
+    if (byName !== 0) return byName;
+
+    const codigoA = a.codigo || "";
+    const codigoB = b.codigo || "";
+
+    return codigoA.localeCompare(codigoB, "es", {
+      sensitivity: "base",
+      numeric: true,
+    });
+  });
 }
 
-function HealthBadge({
-  healthStatus,
-}: {
-  healthStatus?: "unknown" | "online" | "offline" | string;
-}) {
-  const status = String(healthStatus || "unknown").toLowerCase();
-
-  if (status === "online") {
-    return (
-      <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-        Online
-      </span>
-    );
-  }
-
-  if (status === "offline") {
-    return (
-      <span className="inline-flex rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200">
-        Offline
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
-      Unknown
-    </span>
-  );
-}
-
-function StateBadge({
-  estado,
-  habilitado,
-}: {
-  estado: string;
-  habilitado?: boolean;
-}) {
-  if (estado !== "activo") {
-    return (
-      <span className="inline-flex rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200">
-        Suspendido
-      </span>
-    );
-  }
-
-  if (habilitado === false) {
-    return (
-      <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
-        Deshabilitado
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-      Activo
-    </span>
-  );
-}
-
-function TypeBadge({ tipo }: { tipo: string }) {
-  const normalized = String(tipo || "").toLowerCase();
-
-  if (normalized === "origin") {
-    return (
-      <span className="inline-flex rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200">
-        Origin
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex rounded-full border border-cyan-300 bg-cyan-50 px-2 py-0.5 text-[9px] font-medium uppercase leading-none text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
-      Edge
-    </span>
-  );
-}
-
-function Kpi({
-  title,
-  value,
-  desc,
-  tone = "neutral",
-}: {
-  title: string;
-  value: string | number;
-  desc: string;
-  tone?: "neutral" | "cyan" | "green" | "red" | "amber";
-}) {
-  const valueClass =
-    tone === "cyan"
-      ? "text-cyan-700 dark:text-cyan-200"
-      : tone === "green"
-        ? "text-emerald-700 dark:text-emerald-200"
-        : tone === "red"
-          ? "text-red-700 dark:text-red-200"
-          : tone === "amber"
-            ? "text-amber-700 dark:text-amber-200"
-            : "text-slate-900 dark:text-slate-100";
-
-  const borderClass =
-    tone === "cyan"
-      ? "border-cyan-300/70 dark:border-cyan-500/20"
-      : tone === "green"
-        ? "border-emerald-300/70 dark:border-emerald-500/20"
-        : tone === "red"
-          ? "border-red-300/70 dark:border-red-500/20"
-          : tone === "amber"
-            ? "border-amber-300/70 dark:border-amber-500/20"
-            : "border-slate-300 dark:border-slate-800";
-
-  return (
-    <div
-      className={`rounded-lg border ${borderClass} bg-white px-2 py-2 shadow-sm dark:bg-slate-900/60`}
-    >
-      <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-        {title}
-      </div>
-
-      <div className={`text-lg font-semibold leading-tight ${valueClass}`}>
-        {value}
-      </div>
-
-      <div className="text-[10px] leading-tight text-slate-500 dark:text-slate-500">
-        {desc}
-      </div>
-    </div>
-  );
-}
-
-function EmptyRow() {
-  return (
-    <tr>
-      <td
-        colSpan={7}
-        className="px-3 py-8 text-center text-[12px] text-slate-500 dark:text-slate-400"
-      >
-        No hay nodos registrados.
-      </td>
-    </tr>
-  );
-}
-
-export default async function StreamingPage({
+export default async function StreamingNodesPage({
   searchParams,
 }: {
-  searchParams?: { error?: string; success?: string };
+  searchParams?: {
+    error?: string;
+    success?: string;
+  };
 }) {
   await requireAdminPageAccess();
 
-  const nodes = (await getAllStreamingNodes()) as StreamingNode[];
+  const nodesRaw = (await getAllStreamingNodes()) as StreamingNodeItem[];
+  const nodes = sortStreamingNodes(nodesRaw);
 
-  const sortedNodes = [...nodes].sort((a, b) => {
-    const priority: Record<string, number> = {
-      origin: 0,
-      edge: 1,
-    };
+  const totalNodes = nodes.length;
+  const origins = nodes.filter((node) => node.tipo === "origin").length;
+  const edges = nodes.filter((node) => node.tipo === "edge").length;
+  const online = nodes.filter((node) => node.healthStatus === "online").length;
+  const offline = nodes.filter((node) => node.healthStatus === "offline").length;
+  const inactive = nodes.filter((node) => node.estado !== "activo").length;
 
-    const pa = priority[String(a.tipo || "").toLowerCase()] ?? 99;
-    const pb = priority[String(b.tipo || "").toLowerCase()] ?? 99;
-
-    if (pa !== pb) return pa - pb;
-
-    const codeA = String(a.codigo || a.nombre || "");
-    const codeB = String(b.codigo || b.nombre || "");
-
-    return codeA.localeCompare(codeB, "es");
-  });
-
-  const totalNodes = sortedNodes.length;
-  const totalOrigins = sortedNodes.filter(
-    (node) => String(node.tipo || "").toLowerCase() === "origin"
-  ).length;
-  const totalEdges = sortedNodes.filter(
-    (node) => String(node.tipo || "").toLowerCase() === "edge"
-  ).length;
-  const onlineNodes = sortedNodes.filter(
-    (node) => String(node.healthStatus || "").toLowerCase() === "online"
-  ).length;
-  const offlineNodes = sortedNodes.filter(
-    (node) => String(node.healthStatus || "").toLowerCase() === "offline"
-  ).length;
-  const disabledNodes = sortedNodes.filter(
-    (node) => node.estado !== "activo" || node.habilitado === false
-  ).length;
-
+  const success = searchParams?.success || "";
   const error = searchParams?.error
     ? decodeURIComponent(searchParams.error)
     : "";
 
-  const success = searchParams?.success || "";
-
   return (
-    <section className="space-y-3 text-[12px] font-normal text-slate-800 dark:text-slate-200">
-      <div className="rounded-lg border border-slate-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-        <div className="border-b border-slate-200 px-3 py-3 dark:border-slate-800">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-blue-700 dark:text-cyan-400">
-                Configuración
-              </p>
+    <DashboardSection>
+      <DashboardPanel>
+        <DashboardHeader
+          title="Nodos de streaming"
+          description="Administración compacta de origins y edges, estado operativo, health check, host y puerto."
+          actionHref="/configuracion/streaming/new"
+          actionLabel="Nuevo nodo"
+        />
 
-              <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                Nodos de streaming
-              </h1>
+        {(success || error) && (
+          <div className="space-y-2 px-3 pt-3">
+            {success === "node-created" && (
+              <AlertBox>Nodo creado correctamente.</AlertBox>
+            )}
 
-              <p className="mt-1 max-w-2xl text-[12px] leading-snug text-slate-500 dark:text-slate-400">
-                Administración compacta de origins y edges, estado operativo,
-                health check, host y puerto.
-              </p>
-            </div>
+            {success === "node-updated" && (
+              <AlertBox>Nodo actualizado correctamente.</AlertBox>
+            )}
 
-            <Link
-              href="/configuracion/streaming/new"
-              className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] font-medium text-blue-800 transition hover:bg-blue-100 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20"
-            >
-              Nuevo nodo
-            </Link>
-          </div>
-        </div>
+            {success === "status-updated" && (
+              <AlertBox>Estado del nodo actualizado correctamente.</AlertBox>
+            )}
 
-        {error && (
-          <div className="mx-3 mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200">
-            {error}
-          </div>
-        )}
+            {success === "health-updated" && (
+              <AlertBox>Health del nodo actualizado correctamente.</AlertBox>
+            )}
 
-        {success === "node-created" && (
-          <div className="mx-3 mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-            Nodo creado correctamente.
-          </div>
-        )}
-
-        {success === "node-updated" && (
-          <div className="mx-3 mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-            Nodo actualizado correctamente.
-          </div>
-        )}
-
-        {success === "status-updated" && (
-          <div className="mx-3 mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-            Estado del nodo actualizado correctamente.
-          </div>
-        )}
-
-        {success === "health-updated" && (
-          <div className="mx-3 mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-            Health check actualizado correctamente.
+            {error && <AlertBox tone="red">{error}</AlertBox>}
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-2 px-3 py-3 md:grid-cols-3 xl:grid-cols-6">
-          <Kpi title="Total" value={totalNodes} desc="Nodos cargados" />
-          <Kpi title="Origins" value={totalOrigins} desc="Cabeceras" tone="cyan" />
-          <Kpi title="Edges" value={totalEdges} desc="Localidades" tone="cyan" />
-          <Kpi title="Online" value={onlineNodes} desc="Health OK" tone="green" />
-          <Kpi
-            title="Offline"
-            value={offlineNodes}
-            desc="Sin respuesta"
-            tone={offlineNodes > 0 ? "red" : "green"}
+          <KpiCard title="Total" value={totalNodes} desc="Nodos cargados" />
+
+          <KpiCard
+            title="Origins"
+            value={origins}
+            desc="Cabeceras"
+            tone="cyan"
           />
-          <Kpi
+
+          <KpiCard
+            title="Edges"
+            value={edges}
+            desc="Localidades"
+            tone="cyan"
+          />
+
+          <KpiCard title="Online" value={online} desc="Health OK" tone="green" />
+
+          <KpiCard
+            title="Offline"
+            value={offline}
+            desc="Sin respuesta"
+            tone={offline > 0 ? "red" : "green"}
+          />
+
+          <KpiCard
             title="Inactivos"
-            value={disabledNodes}
+            value={inactive}
             desc="Suspendidos"
-            tone={disabledNodes > 0 ? "amber" : "green"}
+            tone={inactive > 0 ? "amber" : "green"}
           />
         </div>
 
         <div className="px-3 pb-3">
-          <div className="max-h-[620px] overflow-auto rounded-lg border border-slate-200 dark:border-slate-800/70">
-            <table className="w-full min-w-[980px] text-[11px]">
-              <thead className="sticky top-0 z-10 bg-slate-100 text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:bg-slate-950 dark:text-slate-400">
-                <tr>
-                  <th className="w-[250px] px-2 py-2 text-left font-medium">
-                    Nodo
-                  </th>
-                  <th className="w-[80px] px-2 py-2 text-center font-medium">
-                    Tipo
-                  </th>
-                  <th className="w-[260px] px-2 py-2 text-left font-medium">
-                    Host / URL
-                  </th>
-                  <th className="w-[190px] px-2 py-2 text-left font-medium">
-                    Health
-                  </th>
-                  <th className="w-[80px] px-2 py-2 text-center font-medium">
-                    Prior.
-                  </th>
-                  <th className="w-[130px] px-2 py-2 text-center font-medium">
-                    Estado
-                  </th>
-                  <th className="w-[210px] px-2 py-2 text-left font-medium">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
+          <TableShell minWidth="min-w-[1120px]">
+            <TableHead>
+              <tr>
+                <th className="w-[250px] px-3 py-2 text-left font-medium">
+                  Nodo
+                </th>
 
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
-                {sortedNodes.length === 0 ? (
-                  <EmptyRow />
-                ) : (
-                  sortedNodes.map((node, index) => (
-                    <tr
-                      key={node._id}
-                      className={`align-top hover:bg-slate-100 dark:hover:bg-slate-800/30 ${
-                        index % 2 ? "bg-slate-50 dark:bg-slate-900/40" : ""
-                      }`}
-                    >
-                      <td className="px-2 py-2">
-                        <div className="min-w-0">
-                          <p className="max-w-[230px] truncate font-medium text-slate-900 dark:text-white">
-                            {node.nombre}
-                          </p>
+                <th className="w-[100px] px-3 py-2 text-center font-medium">
+                  Tipo
+                </th>
 
-                          <p className="mt-0.5 max-w-[230px] truncate text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Código: {node.codigo}
-                          </p>
+                <th className="w-[300px] px-3 py-2 text-left font-medium">
+                  Host / URL
+                </th>
 
-                          {node.observaciones ? (
-                            <p className="mt-1 line-clamp-2 max-w-[230px] text-[10px] leading-snug text-slate-500 dark:text-slate-500">
-                              {node.observaciones}
-                            </p>
-                          ) : null}
-                        </div>
+                <th className="w-[250px] px-3 py-2 text-left font-medium">
+                  Health
+                </th>
+
+                <th className="w-[80px] px-3 py-2 text-center font-medium">
+                  Prior.
+                </th>
+
+                <th className="w-[120px] px-3 py-2 text-center font-medium">
+                  Estado
+                </th>
+
+                <th className="w-[218px] px-3 py-2 text-center font-medium">
+                  Acciones
+                </th>
+              </tr>
+            </TableHead>
+
+            <TableBody>
+              {nodes.length === 0 ? (
+                <EmptyTableRow colSpan={7}>
+                  No hay nodos de streaming cargados.
+                </EmptyTableRow>
+              ) : (
+                nodes.map((node, index) => {
+                  const isActive = node.estado === "activo";
+                  const healthStatus = node.healthStatus || "unknown";
+
+                  return (
+                    <TableRow key={node._id} index={index} align="top">
+                      <td className="px-3 py-3">
+                        <p className="max-w-[230px] truncate text-[12px] font-semibold text-slate-900 dark:text-white">
+                          {node.nombre}
+                        </p>
+
+                        <p className="mt-1 max-w-[230px] truncate text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          Código: {node.codigo || "—"}
+                        </p>
                       </td>
 
-                      <td className="px-2 py-2 text-center">
-                        <TypeBadge tipo={node.tipo} />
+                      <td className="px-3 py-3 text-center">
+                        <StatusBadge
+                          tone={node.tipo === "origin" ? "violet" : "cyan"}
+                          className="w-[74px]"
+                        >
+                          {node.tipo === "origin" ? "Origin" : "Edge"}
+                        </StatusBadge>
                       </td>
 
-                      <td className="px-2 py-2">
-                        <div className="space-y-0.5 text-[10px] leading-snug">
-                          <p className="max-w-[250px] truncate text-slate-800 dark:text-slate-200">
-                            {node.host || "—"}:{node.puerto ?? "—"}
-                          </p>
+                      <td className="px-3 py-3">
+                        <p className="max-w-[280px] truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                          {buildHostLabel(node)}
+                        </p>
 
-                          <p className="max-w-[250px] truncate text-slate-500 dark:text-slate-400">
-                            URL: {node.urlBase || "—"}
-                          </p>
+                        <p
+                          className="mt-1 max-w-[280px] truncate text-[10px] text-slate-500 dark:text-slate-400"
+                          title={buildUrlLabel(node)}
+                        >
+                          URL: {buildUrlLabel(node)}
+                        </p>
 
-                          <p className="max-w-[250px] truncate text-slate-500 dark:text-slate-400">
-                            Path: {node.healthCheckPath || "/health"}
-                          </p>
-                        </div>
+                        <p className="mt-1 max-w-[280px] truncate text-[10px] text-slate-500 dark:text-slate-400">
+                          Path: {node.healthCheckPath || "/health"}
+                        </p>
                       </td>
 
-                      <td className="px-2 py-2">
+                      <td className="px-3 py-3">
                         <div className="space-y-1">
-                          <HealthBadge healthStatus={node.healthStatus} />
+                          <StatusBadge
+                            tone={
+                              healthStatus === "online"
+                                ? "green"
+                                : healthStatus === "offline"
+                                  ? "red"
+                                  : "slate"
+                            }
+                            className="w-[82px]"
+                          >
+                            {getHealthLabel(healthStatus)}
+                          </StatusBadge>
 
-                          <div className="space-y-0.5 text-[10px] leading-snug text-slate-500 dark:text-slate-400">
-                            <p>Check: {formatDate(node.lastCheckAt)}</p>
-                            <p>Seen: {formatDate(node.lastSeenAt)}</p>
-                            <p>Fallos: {node.failureCount ?? 0}</p>
+                          <p className="text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+                            Check: {formatDateTime(node.lastCheckAt)}
+                          </p>
 
-                            {node.lastError ? (
-                              <p
-                                title={node.lastError}
-                                className="max-w-[170px] truncate text-red-600 dark:text-red-300"
-                              >
-                                Error: {node.lastError}
-                              </p>
-                            ) : (
-                              <p>Error: —</p>
-                            )}
-                          </div>
+                          <p className="text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+                            Seen: {formatDateTime(node.lastSeenAt)}
+                          </p>
+
+                          <p className="text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+                            Fallos: {Number(node.failureCount || 0)}
+                          </p>
+
+                          <p
+                            className={`max-w-[220px] truncate text-[10px] leading-snug ${
+                              node.lastError
+                                ? "text-red-700 dark:text-red-300"
+                                : "text-slate-400 dark:text-slate-500"
+                            }`}
+                            title={node.lastError || "—"}
+                          >
+                            Error: {node.lastError || "—"}
+                          </p>
                         </div>
                       </td>
 
-                      <td className="px-2 py-2 text-center text-[12px] font-medium text-slate-800 dark:text-slate-200">
-                        {node.prioridad ?? "—"}
+                      <td className="px-3 py-3 text-center">
+                        <CodeBadge>{node.prioridad ?? "—"}</CodeBadge>
                       </td>
 
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-3 py-3 text-center">
                         <div className="flex flex-col items-center gap-1">
-                          <StateBadge
-                            estado={node.estado}
-                            habilitado={node.habilitado}
-                          />
+                          <StatusBadge
+                            tone={isActive ? "green" : "red"}
+                            className="w-[92px]"
+                          >
+                            {isActive ? "Activo" : "Suspendido"}
+                          </StatusBadge>
 
-                          <span className="text-[10px] text-slate-500 dark:text-slate-500">
-                            {node.healthTimeoutMs ?? "—"} ms
+                          <span className="text-[10px] leading-none text-slate-500 dark:text-slate-500">
+                            {Number(node.healthTimeoutMs || 2500)} ms
                           </span>
                         </div>
                       </td>
 
-                      <td className="px-2 py-2">
-                        <div className="flex max-w-[200px] flex-wrap gap-1.5">
-                          <Link
+                      <td className="px-3 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <ActionLink
                             href={`/configuracion/streaming/${node._id}/edit`}
-                            className="inline-flex rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1.5 text-[11px] font-medium text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
                           >
                             Editar
-                          </Link>
+                          </ActionLink>
 
                           <form
                             action={`/api/configuracion/streaming/${node._id}/refresh-health`}
                             method="POST"
                           >
-                            <button
-                              type="submit"
-                              className="inline-flex rounded-lg border border-blue-300 bg-blue-50 px-2.5 py-1.5 text-[11px] font-medium text-blue-800 transition hover:bg-blue-100 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20"
-                            >
-                              Health
-                            </button>
+                            <ActionButton tone="cyan">Health</ActionButton>
                           </form>
 
                           <form
                             action={`/api/configuracion/streaming/${node._id}/toggle-status`}
                             method="POST"
                           >
-                            <button
-                              type="submit"
-                              className={`inline-flex rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
-                                node.estado === "activo"
-                                  ? "border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
-                                  : "border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
-                              }`}
-                            >
-                              {node.estado === "activo" ? "Suspender" : "Activar"}
-                            </button>
+                            <ActionButton tone={isActive ? "red" : "green"}>
+                              {isActive ? "Susp." : "Activar"}
+                            </ActionButton>
                           </form>
                         </div>
                       </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </TableShell>
+
+          <DashboardFooterNote>
+            El worker puede verificar automáticamente el endpoint health de cada
+            nodo. Los nodos suspendidos se consideran fuera de servicio.
+          </DashboardFooterNote>
         </div>
-      </div>
-    </section>
+      </DashboardPanel>
+    </DashboardSection>
   );
 }
